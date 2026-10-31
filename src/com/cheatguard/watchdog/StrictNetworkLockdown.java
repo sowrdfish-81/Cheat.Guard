@@ -78,7 +78,11 @@ public final class StrictNetworkLockdown implements Closeable {
             writeLockPaths();
             writeConfig(sid, program);
             launchElevated(false);
-            long end = System.currentTimeMillis() + 150000L;
+            // 5 minutes: the elevated helper arms DNS, firewall and file walls; a
+            // bounded file-wall deny on a cloud-synced folder (OneDrive, Google
+            // Drive) can legitimately take over a minute per folder while NTFS
+            // propagates the ACE through thousands of placeholder children.
+            long end = System.currentTimeMillis() + 300000L;
             while (System.currentTimeMillis() < end) {
                 if (ready.exists()) {
                     active = true;

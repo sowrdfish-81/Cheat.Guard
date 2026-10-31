@@ -43,6 +43,29 @@ function Log-Step([string]$Message) {
     } catch {}
 }
 
+# Run takeown/icacls with a HARD timeout and stderr kept away from
+# $ErrorActionPreference='Stop' (native stderr under Stop becomes a terminating
+# NativeCommandError, which silently skipped locks). Setting an inheritable deny
+# on a cloud-synced folder (OneDrive, Google Drive) can take MINUTES while NTFS
+# pushes the ACE through thousands of placeholder children - an unbounded icacls
+# here hung the whole arm sequence until the app timed out and the session never
+# started. Returns the exit code, or -1 on timeout / failure to start.
+function Invoke-AclTool([string]$FilePath, [string]$ArgumentString, [int]$TimeoutSec = 120) {
+    try {
+        $p = Start-Process -FilePath $FilePath -ArgumentList $ArgumentString `
+            -WindowStyle Hidden -PassThru -ErrorAction Stop
+        if (-not $p.WaitForExit($TimeoutSec * 1000)) {
+            try { $p.Kill() } catch {}
+            Log-Step ("ACL TOOL TIMEOUT after " + $TimeoutSec + "s: " + $FilePath + " " + $ArgumentString)
+            return -1
+        }
+        return $p.ExitCode
+    } catch {
+        Log-Step ("ACL TOOL could not start: " + $FilePath + " " + $ArgumentString)
+        return -1
+    }
+}
+
 $fusKey = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System'
 $groupName = 'Cheat.Guard Strict Exam'
 $proxyKey = "Registry::HKEY_USERS\$($cfg.userSid)\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
@@ -313,11 +336,11 @@ function Protect-LogFile([string]$Path) {
     if ([string]::IsNullOrWhiteSpace($Path)) { return }
     if (-not (Test-Path -LiteralPath $Path)) { return }
     try {
-        takeown /F "$Path" /A | Out-Null
-        icacls "$Path" /inheritance:r | Out-Null
-        icacls "$Path" /grant "*S-1-5-32-544:(F)" | Out-Null   # Administrators: full
-        icacls "$Path" /grant "*S-1-5-18:(F)"     | Out-Null   # SYSTEM: full
-        icacls "$Path" /grant "*S-1-5-32-545:(R)" | Out-Null   # Users: read only
+        Invoke-AclTool takeown ('/F "' + $Path + '" /A') 30 | Out-Null
+        Invoke-AclTool icacls ('"' + $Path + '" /inheritance:r') 30 | Out-Null
+        Invoke-AclTool icacls ('"' + $Path + '" /grant "*S-1-5-32-544:(F)"') 30 | Out-Null   # Administrators: full
+        Invoke-AclTool icacls ('"' + $Path + '" /grant "*S-1-5-18:(F)"') 30 | Out-Null       # SYSTEM: full
+        Invoke-AclTool icacls ('"' + $Path + '" /grant "*S-1-5-32-545:(R)"') 30 | Out-Null   # Users: read only
     } catch {}
 }
 
@@ -383,12 +406,12 @@ function Protect-VaultDirectory([string]$Dir) {
     if ([string]::IsNullOrWhiteSpace($Dir)) { return }
     if (-not (Test-Path -LiteralPath $Dir)) { return }
     try {
-        takeown /F "$Dir" /A | Out-Null
-        icacls "$Dir" /inheritance:r | Out-Null
-        icacls "$Dir" /grant "*S-1-5-32-544:(OI)(CI)(F)" | Out-Null   # Administrators
-        icacls "$Dir" /grant "*S-1-5-18:(OI)(CI)(F)"     | Out-Null   # SYSTEM
-        icacls "$Dir" /grant "*S-1-5-32-545:(RX,W)"      | Out-Null   # folder: read + create, no delete-child
-        icacls "$Dir" /grant "*S-1-5-32-545:(OI)(IO)(M)" | Out-Null   # new files: modify
+        Invoke-AclTool takeown ('/F "' + $Dir + '" /A') 30 | Out-Null
+        Invoke-AclTool icacls ('"' + $Dir + '" /inheritance:r') 30 | Out-Null
+        Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-32-544:(OI)(CI)(F)"') 30 | Out-Null   # Administrators
+        Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-18:(OI)(CI)(F)"') 30 | Out-Null       # SYSTEM
+        Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-32-545:(RX,W)"') 30 | Out-Null        # folder: read + create, no delete-child
+        Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-32-545:(OI)(IO)(M)"') 30 | Out-Null   # new files: modify
     } catch {}
 }
 
@@ -408,10 +431,16 @@ function Set-FileAccessLocks([string]$ListFile, [string]$Sid) {
     foreach ($line in @(Get-Content -LiteralPath $ListFile -Encoding UTF8 -ErrorAction SilentlyContinue)) {
         $p = $line.Trim()
         if (-not $p -or -not (Test-Path -LiteralPath $p)) { continue }
-        try {
-            icacls "$p" /deny "*$($Sid):(OI)(CI)(RX,D)" | Out-Null
+        # Bounded deny: on cloud-synced folders (OneDrive, Google Drive) the
+        # inheritable ACE can take minutes to propagate, and some cloud
+        # filesystems reject the deny outright (exit 87). Either way the arm
+        # sequence must survive: skip the path and keep going.
+        $code = Invoke-AclTool icacls ('"' + $p + '" /deny "*' + $Sid + ':(OI)(CI)(RX,D)"') 120
+        if ($code -eq 0) {
             $locked.Add($p)
-        } catch {}
+        } else {
+            Log-Step ("file wall: skipped '" + $p + "' (icacls exit " + $code + ")")
+        }
     }
     return $locked
 }
@@ -434,7 +463,7 @@ function Remove-DenyForSid([string]$Path, [string]$Sid) {
     if ([string]::IsNullOrWhiteSpace($Path) -or [string]::IsNullOrWhiteSpace($Sid)) { return }
     if (-not (Test-Path -LiteralPath $Path)) { return }
     for ($attempt = 0; $attempt -lt 3; $attempt++) {
-        try { icacls "$Path" /remove:d "*$Sid" | Out-Null } catch {}
+        try { Invoke-AclTool icacls ('"' + $Path + '" /remove:d "*' + $Sid + '"') 120 | Out-Null } catch {}
         if (-not (Test-DenyPresent $Path $Sid)) { return }
         Start-Sleep -Milliseconds 300
     }
@@ -873,13 +902,14 @@ if ($FailSafeCheck) {
         }
 
         # A session is only "interrupted" when NEITHER the app NOR the elevated
-        # session helper is alive. The session helper is the invocation WITH
-        # -Config; other -FailSafeCheck instances must not see each other as a
-        # live helper, or two concurrent checks would mutually skip forever.
+        # session helper is alive. Any other network-lockdown.ps1 instance counts:
+        # the session helper runs elevated, and its command line is not always
+        # readable from this (SYSTEM) context, so a "-Config" filter here once
+        # made a live, hung helper invisible and the fail-safe raced a live
+        # session's restore. Fail-safe ticks skip on each other's PID only.
         $appAlive = @(Get-Process -Name 'CheatGuardCentral','CheatGuard' -ErrorAction SilentlyContinue).Count -gt 0
         $helperAlive = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
             Where-Object { $_.CommandLine -match 'network-lockdown\.ps1' `
-                           -and $_.CommandLine -match '-Config' `
                            -and $_.ProcessId -ne $PID }).Count -gt 0
         if ($appAlive -or $helperAlive) {
             try { ('[' + (Get-Date -Format s) + '] FailSafe: live session detected (app=' +
@@ -1098,12 +1128,14 @@ try {
     try {
         $hostsFile = Join-Path $env:SystemRoot 'System32\drivers\etc\hosts'
         if ((-not [string]::IsNullOrWhiteSpace($cfg.userSid)) -and (Test-Path -LiteralPath $hostsFile)) {
-            icacls "$hostsFile" /deny "*$($cfg.userSid):(W)" | Out-Null
-            $script:fileLocks = @($script:fileLocks) + @($hostsFile)
+            if ((Invoke-AclTool icacls ('"' + $hostsFile + '" /deny "*' + $cfg.userSid + ':(W)"') 60) -eq 0) {
+                $script:fileLocks = @($script:fileLocks) + @($hostsFile)
+            }
         }
     } catch {}
     $state.FileLocks = @($script:fileLocks)
     $state | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $stateFile -Encoding UTF8
+    Log-Step ('file walls applied: ' + $script:fileLocks.Count + ' path(s) locked')
     if (-not [string]::IsNullOrWhiteSpace($lockStatusFile)) {
         if ($script:fileLocks.Count -ge 1) { 'ACTIVE' | Set-Content -LiteralPath $lockStatusFile -Encoding ASCII }
         else { 'SKIPPED' | Set-Content -LiteralPath $lockStatusFile -Encoding ASCII }
@@ -1156,11 +1188,11 @@ try {
     # or swap this script while the UAC prompt is on screen.
     try {
         $networkRoot = Split-Path -Parent $Config
-        takeown /F "$networkRoot" /A | Out-Null
-        icacls "$networkRoot" /inheritance:r | Out-Null
-        icacls "$networkRoot" /grant "*S-1-5-32-544:(OI)(CI)(F)" | Out-Null   # Administrators: full
-        icacls "$networkRoot" /grant "*S-1-5-18:(OI)(CI)(F)"     | Out-Null   # SYSTEM: full
-        icacls "$networkRoot" /grant "*S-1-5-32-545:(OI)(CI)(RX)" | Out-Null  # Users: read+execute only
+        Invoke-AclTool takeown ('/F "' + $networkRoot + '" /A') 30 | Out-Null
+        Invoke-AclTool icacls ('"' + $networkRoot + '" /inheritance:r') 30 | Out-Null
+        Invoke-AclTool icacls ('"' + $networkRoot + '" /grant "*S-1-5-32-544:(OI)(CI)(F)"') 30 | Out-Null  # Administrators: full
+        Invoke-AclTool icacls ('"' + $networkRoot + '" /grant "*S-1-5-18:(OI)(CI)(F)"') 30 | Out-Null      # SYSTEM: full
+        Invoke-AclTool icacls ('"' + $networkRoot + '" /grant "*S-1-5-32-545:(OI)(CI)(RX)"') 30 | Out-Null # Users: read+execute only
     } catch {}
 
     Register-FailSafeTask
