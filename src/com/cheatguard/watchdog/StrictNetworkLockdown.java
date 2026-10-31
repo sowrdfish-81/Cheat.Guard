@@ -11,6 +11,7 @@ import java.lang.management.ManagementFactory;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -345,14 +346,55 @@ public final class StrictNetworkLockdown implements Closeable {
      */
     public static void ensureFailSafeRegistered() {
         Thread t = new Thread(() -> {
+            // The task registration must happen even when the helper copy below
+            // fails: a surviving old helper is far better than no fail-safe net.
+            boolean copyOk = false;
+            String copyDetail = "unchanged";
             try {
                 File dir = AppPaths.getNetworkDirectory();
                 File helper = new File(dir, "network-lockdown.ps1");
+                byte[] bundled;
                 try (InputStream in = StrictNetworkLockdown.class.getResourceAsStream("/network-lockdown.ps1")) {
-                    if (in == null) return;
-                    Files.copy(in, helper.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    if (in == null) { AppLog.warn("Fail-safe helper resource missing"); }
+                    else {
+                        bundled = in.readAllBytes();
+                        boolean identical = false;
+                        try {
+                            identical = Files.size(helper.toPath()) == bundled.length
+                                    && Arrays.equals(bundled, Files.readAllBytes(helper.toPath()));
+                        } catch (Exception ignored) {
+                        }
+                        if (!identical) {
+                            // REPLACE_EXISTING has failed with a bare-path access
+                            // error on hardened/locked dirs; write a sibling temp
+                            // file and move over it instead.
+                            File staged = new File(dir, "network-lockdown.ps1.new");
+                            try {
+                                Files.write(staged.toPath(), bundled);
+                                try {
+                                    Files.move(staged.toPath(), helper.toPath(),
+                                            java.nio.file.StandardCopyOption.ATOMIC_MOVE,
+                                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                } catch (Exception atomicUnsupported) {
+                                    Files.move(staged.toPath(), helper.toPath(),
+                                            java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                                }
+                                copyOk = true;
+                                copyDetail = "updated";
+                            } catch (Exception copyEx) {
+                                try { Files.deleteIfExists(staged.toPath()); } catch (Exception ignored) {}
+                                copyDetail = copyEx.getClass().getSimpleName() + ": " + copyEx.getMessage();
+                            }
+                        } else {
+                            copyOk = true;
+                        }
+                    }
                 }
-                // Forward slashes keep this script free of Java/PowerShell quote traps.
+            } catch (Exception copyEx) {
+                copyDetail = copyEx.getClass().getSimpleName() + ": " + copyEx.getMessage();
+            }
+
+            try {
                 String script = "$d = $env:ProgramData + '/CheatGuard/network'; "
                         + "$ps = $env:SystemRoot + '/System32/WindowsPowerShell/v1.0/powershell.exe'; "
                         + "$s = $d + '/network-lockdown.ps1'; "
@@ -365,12 +407,20 @@ public final class StrictNetworkLockdown implements Closeable {
                         + "-StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 15); "
                         + "Register-ScheduledTask -TaskName 'CheatGuard SessionFailSafe' -Action $action "
                         + "-Trigger @($trigger, $logon) -Settings $settings -User 'SYSTEM' -RunLevel Highest "
-                        + "-Force -ErrorAction Stop | Out-Null";
+                        + "-Force -ErrorAction Stop | Out-Null; "
+                        + "if ($?) { exit 0 } else { exit 2 }";
                 Process p = PowerShellUtil.start(script);
-                if (!p.waitFor(60, TimeUnit.SECONDS)) p.destroyForcibly();
-                AppLog.info("Fail-safe task ensured at app start");
+                int code = p.waitFor(60, TimeUnit.SECONDS) ? p.exitValue() : -1;
+                if (code == 0) {
+                    AppLog.info("Fail-safe task ensured at app start (helper " + copyDetail + ")");
+                } else {
+                    AppLog.warn("Fail-safe task registration failed (exit " + code
+                            + ", helper " + copyDetail + ")");
+                }
             } catch (Exception e) {
-                AppLog.warn("Fail-safe task registration at start failed: " + e.getMessage());
+                AppLog.warn("Fail-safe task registration failed: "
+                        + e.getClass().getSimpleName() + ": " + e.getMessage()
+                        + " (helper " + copyDetail + ")");
             }
         }, "CheatGuard-FailSafeReg");
         t.setDaemon(true);
@@ -378,9 +428,22 @@ public final class StrictNetworkLockdown implements Closeable {
     }
 
     private void copyHelper() throws IOException {
+        byte[] bundled;
         try (InputStream in = StrictNetworkLockdown.class.getResourceAsStream("/network-lockdown.ps1")) {
             if (in == null) throw new FileNotFoundException("network-lockdown.ps1 resource missing");
-            Files.copy(in, helper.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            bundled = in.readAllBytes();
+        }
+        try {
+            Files.write(helper.toPath(), bundled);
+        } catch (Exception replaceFailed) {
+            // REPLACE_EXISTING can fail on a locked/hardened file even when the
+            // app is elevated. An OUTDATED helper still runs a correct session;
+            // a missing one does not exist at all. Only fail when there is no
+            // file to fall back to.
+            if (!helper.isFile()) throw new IOException(
+                    "Could not stage the network helper: " + replaceFailed, replaceFailed);
+            AppLog.warn("Helper update skipped, using existing copy: "
+                    + replaceFailed.getClass().getSimpleName());
         }
     }
 
