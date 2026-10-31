@@ -684,7 +684,7 @@ function Register-FailSafeTask {
         $ps = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
         $script = Join-Path $PSScriptRoot 'network-lockdown.ps1'
         $action = New-ScheduledTaskAction -Execute $ps `
-            -Argument ('-NoProfile -ExecutionPolicy Bypass -File "' + $script + '" -FailSafeCheck')
+            -Argument ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $script + '" -FailSafeCheck')
         $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
             -RepetitionInterval (New-TimeSpan -Minutes 3) -RepetitionDuration (New-TimeSpan -Days 3650)
         # Recovery also starts the moment anyone logs on (a crashed session's PC

@@ -134,12 +134,14 @@ public final class LogProtection {
 
             String outer = "$p=Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -Verb RunAs "
                     + "-WindowStyle Hidden -PassThru -Wait "
-                    + "-ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-EncodedCommand','" + encoded + "';"
+                    + "-ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-EncodedCommand','" + encoded + "';"
                     + "if($null -eq $p){ throw 'not started' }"
                     + "exit $p.ExitCode;";
 
+            // Hidden on both hops: the relay waits for the whole elevated run, and
+            // an elevated console popping up over the dashboard looked broken.
             Process p = new ProcessBuilder("powershell.exe", "-NoProfile",
-                    "-ExecutionPolicy", "Bypass", "-Command", outer)
+                    "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-Command", outer)
                     .redirectErrorStream(true).start();
             p.getInputStream().readAllBytes();
             return p.waitFor() == 0;

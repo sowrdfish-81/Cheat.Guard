@@ -174,7 +174,10 @@ public class Main {
         String command = "$p=Start-Process -FilePath '" + exe.getAbsolutePath().replace("'", "''")
                 + "'" + argList + " -Verb RunAs -PassThru; if($null -eq $p){ exit 1 }";
         try {
+            // Hidden: this relay sits on screen while the UAC prompt waits — a
+            // visible console made it look like a PowerShell opened instead of the app.
             Process p = new ProcessBuilder("powershell.exe", "-NoProfile", "-NonInteractive",
+                    "-WindowStyle", "Hidden",
                     "-Command", command).redirectErrorStream(true).start();
             p.getInputStream().readAllBytes();
             if (p.waitFor() == 0) return false; // elevated instance started; nothing more here
@@ -193,7 +196,10 @@ public class Main {
 
     private static boolean isElevated() {
         try {
-            Process p = new ProcessBuilder("powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+            // Hidden: this runs on every app start; a visible console here made
+            // launching the app look like "a PowerShell opened instead".
+            Process p = new ProcessBuilder("powershell.exe", "-NoProfile", "-NonInteractive",
+                    "-WindowStyle", "Hidden", "-Command",
                     "(New-Object Security.Principal.WindowsPrincipal("
                             + "[Security.Principal.WindowsIdentity]::GetCurrent()"
                             + ")).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)")

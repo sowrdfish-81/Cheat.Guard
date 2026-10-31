@@ -357,7 +357,7 @@ public final class StrictNetworkLockdown implements Closeable {
                         + "$ps = $env:SystemRoot + '/System32/WindowsPowerShell/v1.0/powershell.exe'; "
                         + "$s = $d + '/network-lockdown.ps1'; "
                         + "if (-not (Test-Path $s)) { exit 1 }; "
-                        + "$action = New-ScheduledTaskAction -Execute $ps -Argument ('-NoProfile -ExecutionPolicy Bypass -File ' + $s + ' -FailSafeCheck'); "
+                        + "$action = New-ScheduledTaskAction -Execute $ps -Argument ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ''' + $s + ''' -FailSafeCheck'); "
                         + "$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) "
                         + "-RepetitionInterval (New-TimeSpan -Minutes 3) -RepetitionDuration (New-TimeSpan -Days 3650); "
                         + "$logon = New-ScheduledTaskTrigger -AtLogOn; "
@@ -652,12 +652,16 @@ public final class StrictNetworkLockdown implements Closeable {
         // its own diagnostics can be written.
         String command = "$ErrorActionPreference='Stop'; " +
                 "$p=Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -Verb RunAs " +
-                "-WorkingDirectory '" + workDir + "' -WindowStyle Normal " +
-                "-ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File','" + helperPath +
+                "-WorkingDirectory '" + workDir + "' -WindowStyle Hidden " +
+                "-ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-File','" + helperPath +
                 "','-Config','" + configPath + "'" + recoverArg + ") -PassThru; " +
                 "if($null -eq $p){ throw 'Could not start elevated network helper.' }";
 
-        Process p = new ProcessBuilder("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command)
+        // Hidden: this relay waits only until the UAC prompt is answered, and the
+        // elevated helper runs hidden for the whole session - a visible console
+        // here used to sit on screen ("instead of the app, a PowerShell opened").
+        Process p = new ProcessBuilder("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
+                "-WindowStyle", "Hidden", "-Command", command)
                 .redirectErrorStream(true).start();
         boolean done;
         try {
