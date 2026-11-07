@@ -128,7 +128,18 @@ public class CentralMonitorPanel extends JPanel {
 
         JButton back = UITheme.ghost("Back");
         back.addActionListener(e -> {
-            stopMonitor();
+            // A running monitor must never be abandoned from here: this panel is
+            // recreated on return, so a fresh random code would greet the
+            // invigilator while students are still joined with the old one.
+            if (running) {
+                JOptionPane.showMessageDialog(this,
+                        "The monitor is running - students are joined with the exam code\n"
+                                + "shown here. Press Stop first if you really want to end it;\n"
+                                + "leaving now would abandon the session and the code would\n"
+                                + "change on the next start.",
+                        "Monitor is running", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
             onBack.run();
         });
         JPanel header = new JPanel(new BorderLayout(12, 0));
@@ -208,8 +219,6 @@ public class CentralMonitorPanel extends JPanel {
         start.addActionListener(e -> startMonitor());
         JButton stop = UITheme.ghost("Stop");
         stop.addActionListener(e -> stopMonitor());
-        JButton exportTrust = UITheme.ghost("Export student truststore...");
-        exportTrust.addActionListener(e -> exportTruststore());
 
         JPanel controls = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         controls.setOpaque(false);
@@ -218,7 +227,6 @@ public class CentralMonitorPanel extends JPanel {
         controls.add(shuffle);
         controls.add(start);
         controls.add(stop);
-        controls.add(exportTrust);
         counters.setFont(UITheme.FONT_SECTION);
         JPanel controlsRow = new JPanel(new BorderLayout(10, 0));
         controlsRow.setOpaque(false);
@@ -319,8 +327,8 @@ public class CentralMonitorPanel extends JPanel {
     private synchronized void startMonitor() {
         if (running) return;
         String code = codeField.getText().trim();
-        if (!code.matches("[A-Za-z0-9]{3,12}")) {
-            statusLabel.setText("The exam code needs 3-12 letters or numbers.");
+        if (!code.matches("[A-Za-z0-9]{3,6}")) {
+            statusLabel.setText("The exam code needs 3-6 letters or numbers.");
             statusLabel.setForeground(UITheme.ACCENT_RED);
             return;
         }
@@ -349,8 +357,7 @@ public class CentralMonitorPanel extends JPanel {
             if (certificateRotated) {
                 JOptionPane.showMessageDialog(this,
                         "The network changed, so the monitor certificate was regenerated.\n"
-                                + "Student PCs pair automatically via the beacon - only PCs with an\n"
-                                + "offline-imported truststore need a freshly exported copy.",
+                                + "Student PCs re-pair automatically via the beacon.",
                         "Certificate regenerated", JOptionPane.INFORMATION_MESSAGE);
             }
         } catch (Exception e) {
@@ -871,40 +878,10 @@ public class CentralMonitorPanel extends JPanel {
         if (t != null) t.interrupt();
     }
 
-    // -------------------------------------------------------- truststore ----
-
-    /** Optional offline fallback: copy the student truststore somewhere shareable. */
-    private void exportTruststore() {
-        File trust = CentralTls.configuredTruststoreFile();
-        if (!trust.isFile()) {
-            JOptionPane.showMessageDialog(this,
-                    "No truststore exists yet - press Start monitor once; the\n"
-                            + "certificate is created automatically on first start.",
-                    "Nothing to export", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
-        chooser.setSelectedFile(new File(trust.getName()));
-        if (chooser.showSaveDialog(this) != javax.swing.JFileChooser.APPROVE_OPTION) return;
-        File target = chooser.getSelectedFile();
-        try {
-            java.nio.file.Files.copy(trust.toPath(), target.toPath(),
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            JOptionPane.showMessageDialog(this,
-                    "Copied. Student PCs normally pair automatically via the\n"
-                            + "beacon - this file is an optional offline fallback:\n"
-                            + "Settings > Import central truststore on a student PC.",
-                    "Truststore exported", JOptionPane.INFORMATION_MESSAGE);
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Could not copy: " + ex.getMessage(),
-                    "Export failed", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
     private static String randomCode() {
         StringBuilder sb = new StringBuilder();
         SecureRandom r = new SecureRandom();
-        for (int i = 0; i < 10; i++) sb.append("0123456789".charAt(r.nextInt(10)));
+        for (int i = 0; i < 6; i++) sb.append("0123456789".charAt(r.nextInt(10)));
         return sb.toString();
     }
 

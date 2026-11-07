@@ -35,8 +35,7 @@ machine's current student-facing LAN addresses. If the network changed
 (hotspot, new room, new subnet) and any current address is no longer covered,
 the certificate is regenerated automatically - the old identity is preserved
 as an orphaned backup. Student PCs re-pair on their own through the beacon
-(see below); the monitor shows a reminder to re-export only for
-offline-imported truststore copies.
+(see below).
 
 ## Finding the invigilator PC (UDP beacon)
 
@@ -61,9 +60,7 @@ nothing, and every connection still requires the HMAC exam-code proof. An
 ACTIVE attacker inside the exam LAN could broadcast a fake beacon and present
 their own certificate to a student's FIRST join - the same trust level as
 walking into the exam room. Environments that need stronger guarantees can
-still distribute the truststore file manually (Export student truststore /
-Settings > Import central truststore); an imported truststore is used as-is
-and the beacon never overrides it.
+pre-provision a custom truststore with the manual keystore helper below.
 
 ## Manual keystore generation (optional)
 
@@ -78,8 +75,8 @@ It creates:
 - `%ProgramData%\CheatGuard\config\central-monitor-keystore.p12` - the
   monitor's private key + certificate. **Stays on the invigilator PC.**
 - `%ProgramData%\CheatGuard\config\central-monitor-truststore.p12` - contains
-  only the certificate. **This is the file you copy to every student PC** into
-  their `CheatGuard\config` folder.
+  only the certificate. With automatic pairing this file normally stays on the
+  invigilator PC; student PCs pin the certificate themselves from the beacon.
 
 The certificate covers the LAN IP you pass (`-LanIp`), `localhost`, and any
 extra names via `-ExtraDnsNames`. If the invigilator's IP changes

@@ -591,40 +591,8 @@ public class SettingsPanel extends JPanel {
         card.add(apply);
         card.add(Box.createVerticalStrut(10));
         card.add(status);
-        card.add(Box.createVerticalStrut(18));
-        card.add(leftAlign(UITheme.row(0, UITheme.section("Central monitor truststore"))));
-        card.add(Box.createVerticalStrut(6));
-        card.add(leftAlign(UITheme.row(0, hint("Student PCs normally pair with the monitor automatically "
-                + "via its beacon. Importing the exported central-monitor-truststore.p12 here is only an "
-                + "offline fallback, e.g. on networks that block the beacon."))));
-        card.add(Box.createVerticalStrut(10));
-        JButton importTrust = UITheme.secondary("Import central truststore...");
-        importTrust.setAlignmentX(LEFT_ALIGNMENT);
-        importTrust.addActionListener(e -> importCentralTruststore());
-        card.add(importTrust);
         card.add(Box.createVerticalGlue());
         return card;
-    }
-
-    /** Copy an invigilator-exported truststore into this PC's config directory. */
-    private void importCentralTruststore() {
-        javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
-        chooser.setDialogTitle("Import central truststore");
-        if (chooser.showOpenDialog(this) != javax.swing.JFileChooser.APPROVE_OPTION) return;
-        File picked = chooser.getSelectedFile();
-        File target = com.cheatguard.watchdog.CentralTls.defaultTruststoreFile();
-        try {
-            java.nio.file.Files.createDirectories(target.getParentFile().toPath());
-            java.nio.file.Files.copy(picked.toPath(), target.toPath(),
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            JOptionPane.showMessageDialog(this,
-                    "Imported to " + target.getAbsolutePath() + ".\n"
-                            + "New exam sessions on this PC can now reach the invigilator's monitor.",
-                    "Truststore imported", JOptionPane.INFORMATION_MESSAGE);
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Could not import: " + ex.getMessage(),
-                    "Import failed", JOptionPane.ERROR_MESSAGE);
-        }
     }
 
     /** One list card: heading, hint, list, add row and secondary actions. */

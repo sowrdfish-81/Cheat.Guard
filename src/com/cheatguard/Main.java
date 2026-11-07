@@ -410,9 +410,9 @@ public class Main {
                 return;
             }
             String code = codeField.getText().trim();
-            if (!code.matches("[A-Za-z0-9]{3,12}")) {
+            if (!code.matches("[A-Za-z0-9]{3,6}")) {
                 JOptionPane.showMessageDialog(frame,
-                        "The exam code must be 3-12 letters or numbers, exactly as the\n"
+                        "The exam code must be 3-6 letters or numbers, exactly as the\n"
                                 + "invigilator reads it from the central monitor. Without the\n"
                                 + "correct code this PC cannot join the monitoring session.",
                         "Check the exam code", JOptionPane.WARNING_MESSAGE);
