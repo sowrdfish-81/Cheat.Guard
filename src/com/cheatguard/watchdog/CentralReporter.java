@@ -21,13 +21,18 @@ import java.util.List;
  * Streams this student's audit events to the invigilator's central monitor over
  * the exam LAN.
  *
- * <p>The student types TWO things on the session setup card: the invigilator's
- * IP and the exam code he shared. This client keeps a TCP connection to that
- * IP on port 47821 and forwards every violation, plus the session start and
- * end, as one text line. When the monitor is unreachable the events queue
- * (bounded) and are flushed on reconnect - nothing here can ever block or
- * break the exam itself. There is NO auto-discovery: without the IP and code
- * the alerts stay on the student's own PC.
+ * <p>The student types the invigilator's IP and the exam code he shared (an
+ * empty IP field is filled in automatically from the monitor's UDP beacon).
+ * This client keeps a TLS connection (plaintext TCP only in explicit
+ * development mode) to that IP on port 47821 and forwards every violation,
+ * plus the session start and end, as one text line. The invigilator's
+ * certificate is validated before any byte of exam data leaves the machine -
+ * the beacon's fingerprint drives automatic certificate pairing - and the
+ * HMAC challenge-response then proves the exam code on the encrypted channel.
+ * When the monitor is unreachable the events queue (bounded) and are flushed
+ * on reconnect - nothing here can ever block or break the exam itself, and
+ * each distinct failure reason is surfaced once on the live screen instead of
+ * failing silently.
  *
  * <p>Mice and keyboards never appear in the feed (they are not device-monitored);
  * everything the watchdog flags locally is what the invigilator sees.
@@ -36,8 +41,10 @@ public final class CentralReporter {
 
     public static final int CENTRAL_TCP_PORT = 47821;
     public static final int DISCOVERY_UDP_PORT = 47822;
-    private static final String BEACON_PREFIX = "CHEATGUARD-CENTRAL@@@";
+    public static final String BEACON_PREFIX = "CHEATGUARD-CENTRAL@@@";
     private static final int MAX_QUEUED = 1000;
+    /** How long to wait for a beacon before the UI hints at manual entry. */
+    private static final long DISCOVERY_HINT_AFTER_MS = 15000;
 
     private final ExamSession session;
     private final String hostPc;
@@ -50,6 +57,15 @@ public final class CentralReporter {
     private volatile boolean running;
     private volatile boolean stopping;
     private volatile Socket activeSocket;
+    private volatile java.net.DatagramSocket discoverySocket;
+    /** Latest certificate fingerprint advertised by each monitor's beacon (bounded). */
+    private final java.util.Map<String, String> beaconFingerprints =
+            new java.util.concurrent.ConcurrentHashMap<>();
+    /** Optional live sink so the student's screen shows WHY the invigilator is blind. */
+    private volatile java.util.function.Consumer<Violation> statusConsumer;
+    private String lastReportedReason = "";
+    private boolean waitingHintShown;
+    private boolean connectedOnce;
     private Thread worker;
 
     public CentralReporter(ExamSession session) {
@@ -82,11 +98,19 @@ public final class CentralReporter {
         worker = new Thread(this::sendLoop, "CheatGuard-CentralSender");
         worker.setDaemon(true);
         worker.start();
+        // The beacon carries the monitor's certificate fingerprint for automatic
+        // pairing, so it is listened for even when the IP was typed manually.
+        startDiscovery();
         // announce the session itself
         report(new Violation("SESSION_START",
                 "Course=" + session.getCourseCode() + " | StudentID=" + session.getStudentId()
                         + " | PC=" + hostPc + " | ExamFolder=" + session.getExamFolder().getAbsolutePath(),
                 Violation.Severity.INFO));
+    }
+
+    /** Optional sink for live connection diagnostics; the student UI shows these. */
+    public void setStatusConsumer(java.util.function.Consumer<Violation> sink) {
+        this.statusConsumer = sink;
     }
 
     public void stop() {
@@ -105,6 +129,13 @@ public final class CentralReporter {
         if (live != null) {
             try {
                 live.close();
+            } catch (Exception ignored) {
+            }
+        }
+        java.net.DatagramSocket ds = discoverySocket;
+        if (ds != null) {
+            try {
+                ds.close();
             } catch (Exception ignored) {
             }
         }
@@ -141,13 +172,129 @@ public final class CentralReporter {
         return s == null ? "" : s.replace("@@@", " @ ").replace("\n", " ").replace("\r", " ");
     }
 
+    /**
+     * Listen for the invigilator's UDP discovery beacon. A manually typed IP
+     * always wins (the beacon only fills in a missing one); the fingerprint the
+     * beacon advertises is remembered per monitor address either way, because
+     * the automatic certificate pairing verifies against it. The first valid
+     * beacon's source address is by definition an address this PC can reach -
+     * exactly what a hotspot setup needs, where the invigilator's IP changes
+     * with every new network.
+     */
+    private void startDiscovery() {
+        Thread t = new Thread(() -> {
+            try (java.net.DatagramSocket socket = new java.net.DatagramSocket(null)) {
+                socket.setReuseAddress(true);
+                socket.bind(new InetSocketAddress(DISCOVERY_UDP_PORT));
+                discoverySocket = socket;
+                byte[] buf = new byte[256];
+                while (running) {
+                    java.net.DatagramPacket packet = new java.net.DatagramPacket(buf, buf.length);
+                    try {
+                        socket.receive(packet);
+                    } catch (Exception e) {
+                        if (!running) break;
+                        continue;
+                    }
+                    String payload = new String(packet.getData(), packet.getOffset(),
+                            packet.getLength(), StandardCharsets.UTF_8).trim();
+                    if (!payload.startsWith(BEACON_PREFIX)) continue;
+                    String rest = payload.substring(BEACON_PREFIX.length()).trim();
+                    // rest: "<port>" (older monitors) or "<port>@@@<sha256>"
+                    String fingerprint = "";
+                    int sep = rest.indexOf("@@@");
+                    if (sep >= 0) {
+                        fingerprint = rest.substring(sep + 3).trim()
+                                .toLowerCase(java.util.Locale.ROOT);
+                        rest = rest.substring(0, sep).trim();
+                    }
+                    String from = packet.getAddress().getHostAddress();
+                    if (from == null || from.isEmpty()) continue;
+                    if (fingerprint.matches("[0-9a-f]{64}")
+                            && (beaconFingerprints.containsKey(from)
+                            || beaconFingerprints.size() < 32)) {
+                        beaconFingerprints.put(from, fingerprint);
+                    }
+                    if (centralHost.isEmpty()) {
+                        centralHost = from;
+                        persistCentralIp(from);
+                        emitStatus("CENTRAL_MONITOR_DISCOVERED",
+                                "Invigilator monitor found at " + from + " (network beacon); connecting...");
+                    }
+                }
+            } catch (Exception ignored) {
+                // discovery is optional; the manual IP field still works
+            } finally {
+                discoverySocket = null;
+            }
+        }, "CheatGuard-CentralDiscovery");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /** One diagnostic row into the sealed log AND onto the live student screen. */
+    private void emitStatus(String type, String message) {
+        Violation v = new Violation(type, message, Violation.Severity.INFO);
+        try {
+            session.getLogManager().record(v);
+        } catch (Exception ignored) {
+        }
+        java.util.function.Consumer<Violation> sink = statusConsumer;
+        if (sink != null) {
+            try {
+                sink.accept(v);
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    /** A concrete, actionable one-line reason the invigilator is not receiving. */
+    private static String failureReason(String host, Exception e) {
+        String message = e.getMessage() == null ? "" : e.getMessage();
+        if (message.contains("beacon has been heard")) {
+            return "No invigilator monitor has been found on this network yet - start the "
+                    + "monitor on the invigilator PC first; it announces itself for automatic "
+                    + "pairing (or type its IP and the exam code on the setup card).";
+        }
+        if (message.contains("does not match its beacon")) {
+            return "The monitor's certificate does not match what it advertised - the "
+                    + "invigilator should restart the monitor, then this PC joins again.";
+        }
+        if (message.contains("does not cover")) {
+            return "The invigilator's certificate does not cover " + host + " - the invigilator "
+                    + "should restart the monitor on this network (it re-issues the "
+                    + "certificate automatically).";
+        }
+        if (message.contains("challenge")) {
+            return "Reached the invigilator's monitor but the link was rejected - check the exam code.";
+        }
+        return "Could not reach the invigilator's monitor at " + host + ":" + CENTRAL_TCP_PORT
+                + " (" + e.getClass().getSimpleName() + ") - alerts stay on this PC until it reconnects.";
+    }
+
     /** Connect/reconnect to the central monitor and drain the queue. */
     private void sendLoop() {
         List<String> batch = new ArrayList<>();
+        long startedAt = System.currentTimeMillis();
         while (running || stopping) {
             String host = centralHost;
-            if (host.isEmpty()) break;
-            try (Socket socket = CentralTls.openClientSocket(host, CENTRAL_TCP_PORT)) {
+            if (host.isEmpty()) {
+                // No manual IP and no beacon yet: wait for discovery instead of
+                // exiting - a session started before the monitor must still join it.
+                if (stopping) break;
+                if (!waitingHintShown
+                        && System.currentTimeMillis() - startedAt > DISCOVERY_HINT_AFTER_MS) {
+                    waitingHintShown = true;
+                    emitStatus("CENTRAL_MONITOR_UNREACHABLE",
+                            "No invigilator monitor has been found on this network yet "
+                                    + "(auto-detect is listening). Type the invigilator's IP and "
+                                    + "exam code on the setup card if it stays silent.");
+                }
+                sleepQuiet(500);
+                continue;
+            }
+            try (Socket socket = CentralTls.openClientSocket(host, CENTRAL_TCP_PORT,
+                    beaconFingerprints.get(host))) {
                 activeSocket = socket;
                 // In TLS mode openClientSocket already connected and handshaken;
                 // connecting again throws SocketException("already connected").
@@ -188,6 +335,12 @@ public final class CentralReporter {
                             "Central monitor rejected the exam code; central reporting is disabled for this session.");
                     return;
                 }
+                if (!connectedOnce) {
+                    connectedOnce = true;
+                    emitStatus("CENTRAL_MONITOR_CONNECTED",
+                            "Connected to the invigilator's monitor at " + host
+                                    + ":" + CENTRAL_TCP_PORT + ". Alerts are streaming to the invigilator.");
+                }
                 while (running || hasQueuedEvents()) {
                     synchronized (queue) {
                         batch.clear();
@@ -201,6 +354,7 @@ public final class CentralReporter {
                 }
                 out.flush();
                 stopping = false;
+                lastReportedReason = ""; // a later failure should report again
             } catch (Exception e) {
                 // monitor down or lockdown blocking: retry after a pause
                 // Put a polled-but-unsent batch back at the HEAD of the queue, or a
@@ -212,6 +366,14 @@ public final class CentralReporter {
                     batch.clear();
                 }
                 if (stopping) break;
+                // A wrong IP, a stale certificate or a blocked port otherwise looks
+                // like a working session: say exactly what is wrong, once per
+                // distinct reason, in the sealed log and on the live screen.
+                String reason = failureReason(host, e);
+                if (!reason.equals(lastReportedReason)) {
+                    lastReportedReason = reason;
+                    emitStatus("CENTRAL_MONITOR_UNREACHABLE", reason);
+                }
                 sleepQuiet(2000);
             }
         }

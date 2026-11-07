@@ -388,7 +388,7 @@ public class Main {
 
         JTextField courseField = UITheme.field("e.g. CSE-3202");
         JTextField studentField = UITheme.field("e.g. 2021831045");
-        JTextField centralField = UITheme.field("Invigilator PC IP (e.g. 192.168.0.50)");
+        JTextField centralField = UITheme.field("Auto-detect via monitor beacon, or type e.g. 192.168.0.50");
         JTextField codeField = UITheme.field("Exam code from the invigilator (e.g. 482913)");
         codeField.setMaximumSize(new Dimension(400, 42));
         courseField.setMaximumSize(new Dimension(400, 42));
@@ -455,9 +455,9 @@ public class Main {
         card.add(Box.createVerticalStrut(14));
         card.add(labelled("Student ID", studentField));
         card.add(Box.createVerticalStrut(14));
-        card.add(labelled("Exam code - given by the invigilator (central monitoring)", codeField));
+        card.add(labelled("Exam code - the invigilator's unique code for THIS exam (central monitoring)", codeField));
         card.add(Box.createVerticalStrut(10));
-        card.add(labelled("Invigilator PC IP - required for central monitoring", centralField));
+        card.add(labelled("Invigilator PC IP - type the IP shown on the invigilator's monitor screen (empty = auto-detect)", centralField));
         card.add(Box.createVerticalStrut(24));
         card.add(startBtn);
         card.add(Box.createVerticalStrut(10));
@@ -492,6 +492,9 @@ public class Main {
                 activeSession, AppConfig.getInstance().getCentralHost(),
                 AppConfig.getInstance().getExamCode());
         centralReporter = reporter;
+        // Central-link diagnostics are otherwise invisible (they bypass the
+        // watchdog listener): surface them on the live log the student sees.
+        reporter.setStatusConsumer(v -> SwingUtilities.invokeLater(() -> appendViolation(liveLog, v)));
         reporter.start();
         ViolationListener liveListener = violation -> SwingUtilities.invokeLater(() -> {
             reporter.report(violation); // the invigilator sees everything, even startup rows

@@ -32,7 +32,7 @@ import java.util.regex.Pattern;
 /** Checks GitHub for, and securely downloads, the official Cheat.Guard installer. */
 public final class UpdateChecker {
 
-    public static final String CURRENT_VERSION = "1.9.21";
+    public static final String CURRENT_VERSION = "1.9.22";
     private static final String OWNER = "sowrdfish-81";
     private static final String REPOSITORY = "CheatGuard-Central";
     private static final String RELEASES_API =

@@ -1,0 +1,101 @@
+name: Windows VM integration tests
+
+# REAL-WINDOWS integration tests on a dedicated, disposable Windows VM.
+#
+# This workflow only runs when a maintainer triggers it AND a self-hosted
+# runner with the labels below is online. If no such VM runner exists, the job
+# stays queued forever - it can never quietly report a pass without a VM.
+#
+# Runner prerequisites (see test/integration/README.md for provisioning):
+#   - labels: self-hosted, Windows, CheatGuard-VM
+#   - the runner service runs as an Administrator (lockdown needs it)
+#   - environment variable CHEATGUARD_VM=1 set for the runner process,
+#     proving this is the disposable VM and not a developer workstation
+#   - VM is restored from its snapshot after each run
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    name: Integration tests on real Windows VM
+    runs-on: [self-hosted, Windows, CheatGuard-VM]
+    timeout-minutes: 90
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify this really is the disposable VM runner
+        shell: pwsh
+        run: |
+          if ($env:CHEATGUARD_VM -ne '1') {
+            throw ("This runner is NOT marked as the disposable CheatGuard VM " +
+                   "(environment variable CHEATGUARD_VM is not '1'). Refusing to run " +
+                   "lockdown/installer tests on a real workstation. " +
+                   "See test/integration/README.md.")
+          }
+          Write-Host "Confirmed disposable VM runner."
+
+      - name: Install JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Compile sources and headless tests
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force build-classes | Out-Null
+          New-Item -ItemType Directory -Force test-classes | Out-Null
+          $sources = Get-ChildItem -Recurse src -Filter *.java | ForEach-Object { $_.FullName }
+          javac -encoding UTF-8 --release 17 -d build-classes $sources
+          if ($LASTEXITCODE -ne 0) { throw "Java compilation failed" }
+          $tests = Get-ChildItem test -Filter *.java | ForEach-Object { $_.FullName }
+          javac -encoding UTF-8 --release 17 -cp build-classes -d test-classes $tests
+          if ($LASTEXITCODE -ne 0) { throw "Test compilation failed" }
+
+      - name: Run headless security suites on real Windows
+        shell: pwsh
+        run: |
+          $cp = "build-classes;test-classes"
+          $tests = @(
+            @{ Name = 'SecurityUpgradeTest'; Class = 'SecurityUpgradeTest' },
+            @{ Name = 'CentralTlsTest';      Class = 'CentralTlsTest' },
+            @{ Name = 'BackupRotationTest';  Class = 'BackupRotationTest' }
+          )
+          foreach ($t in $tests) {
+            $dataDir = Join-Path $env:RUNNER_TEMP ("cgdata-" + [guid]::NewGuid().ToString('N'))
+            Write-Host "==> $($t.Name)"
+            java "-Dcheatguard.data.dir=$dataDir" -cp $cp $t.Class
+            if ($LASTEXITCODE -ne 0) { throw "$($t.Name) failed" }
+          }
+
+      - name: Download WiX Toolset 3.14
+        shell: pwsh
+        run: |
+          $wixUrl = 'https://github.com/wixtoolset/wix3/releases/download/wix3141rtm/wix314-binaries.zip'
+          $zip = Join-Path $env:RUNNER_TEMP 'wix314-binaries.zip'
+          New-Item -ItemType Directory -Force tools/wix | Out-Null
+          Invoke-WebRequest -Uri $wixUrl -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath tools/wix -Force
+
+      - name: Build installer
+        shell: cmd
+        run: build-installer.bat
+
+      - name: Run full integration harness (install, startup, lockdown, restore, uninstall)
+        shell: pwsh
+        run: |
+          ./test/integration/run-all.ps1 -RepoRoot . -InstallerPath dist/CheatGuardCentral-Setup.exe
+          if ($LASTEXITCODE -ne 0) { throw "Integration harness failed" }
+
+      - name: Upload integration test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-output
+          path: integration-output/
+          if-no-files-found: ignore

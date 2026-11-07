@@ -1098,6 +1098,13 @@ try {
     }
     Set-CentralRule
 
+    # The student also LISTENS for the monitor's UDP discovery beacon on 47822 so
+    # the invigilator's IP can change (hotspot, new room) without re-typing anything.
+    Remove-NetFirewallRule -PolicyStore PersistentStore -DisplayName 'Cheat.Guard - central discovery in' `
+        -ErrorAction SilentlyContinue | Out-Null
+    New-NetFirewallRule -PolicyStore PersistentStore -DisplayName 'Cheat.Guard - central discovery in' -Group $groupName `
+        -Direction Inbound -Protocol UDP -LocalPort 47822 -Action Allow -Profile Any -ErrorAction SilentlyContinue | Out-Null
+
     # ---- tunnel/remote-access hardening, then the egress web lockdown ----
     Add-TunnelPortBlocks
     $script:lastIps = ''

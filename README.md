@@ -8,8 +8,8 @@ invigilator's screen over **TLS** with an HMAC exam-code proof on top.
 
 ## Current release
 
-Version: **1.9.21**
-Release: [v1.9.21](https://github.com/sowrdfish-81/CheatGuard-Central/releases/tag/v1.9.21)
+Version: **1.9.22**
+Release: [v1.9.22](https://github.com/sowrdfish-81/CheatGuard-Central/releases/tag/v1.9.22)
 
 Release assets (see the release page for the exact SHA-256 of the current
 installer; the in-app updater verifies it before installing):
@@ -32,6 +32,10 @@ installer; the in-app updater verifies it before installing):
 - **TLS 1.2/1.3 central-monitor transport** with full certificate
   validation (PKCS12 keystore/truststore, SAN check) plus the HMAC
   challenge-response exam-code proof - [docs/CENTRAL_TLS.md](docs/CENTRAL_TLS.md).
+- **UDP beacon auto-discovery** of the invigilator PC (typed IP optional, even
+  when a hotspot changes addresses), **automatic certificate pairing** on
+  student PCs (no truststore copying), automatic certificate rotation when the
+  network changes, and optional in-app truststore export/import.
 - Diagnostic logs that rotate by size and age, separate from audit vaults.
 - PBKDF2-HMAC-SHA256 administrator credentials with lockout protection.
 - Proxy, VPN, remote-control, tunnel-port, and raw-egress protections.

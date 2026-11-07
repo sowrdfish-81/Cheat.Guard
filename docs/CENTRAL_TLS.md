@@ -28,6 +28,43 @@ entry is required. If an interrupted first setup left an unmanaged keystore,
 the app preserves it as an orphaned backup and provisions a fresh managed
 identity.
 
+## Network changes and certificate rotation
+
+When the monitor starts it compares the certificate's SANs against the
+machine's current student-facing LAN addresses. If the network changed
+(hotspot, new room, new subnet) and any current address is no longer covered,
+the certificate is regenerated automatically - the old identity is preserved
+as an orphaned backup. Student PCs re-pair on their own through the beacon
+(see below); the monitor shows a reminder to re-export only for
+offline-imported truststore copies.
+
+## Finding the invigilator PC (UDP beacon)
+
+While the monitor runs it broadcasts a `CHEATGUARD-CENTRAL@@@<port>@@@<sha256>`
+beacon on UDP 47822 every two seconds. A student PC that leaves the
+**Invigilator PC IP** field empty auto-detects the monitor from the beacon and
+connects back to the address the packet actually came from, so hotspot/DHCP
+address changes no longer break the join. A manually typed IP always wins; the
+beacon is still received for its fingerprint.
+
+## Automatic pairing (trust on first use)
+
+The beacon carries the SHA-256 fingerprint of the monitor certificate. A
+student PC that has no truststore yet (or whose stored certificate was just
+rejected because the monitor rotated it) captures the certificate the monitor
+presents, accepts it ONLY when its SHA-256 matches the beacon fingerprint,
+pins it into the local truststore and reconnects with full validation. No
+file has to be copied to student PCs.
+
+What this means for security: passive eavesdroppers on the exam LAN learn
+nothing, and every connection still requires the HMAC exam-code proof. An
+ACTIVE attacker inside the exam LAN could broadcast a fake beacon and present
+their own certificate to a student's FIRST join - the same trust level as
+walking into the exam room. Environments that need stronger guarantees can
+still distribute the truststore file manually (Export student truststore /
+Settings > Import central truststore); an imported truststore is used as-is
+and the beacon never overrides it.
+
 ## Manual keystore generation (optional)
 
 Run the shipped helper as Administrator:

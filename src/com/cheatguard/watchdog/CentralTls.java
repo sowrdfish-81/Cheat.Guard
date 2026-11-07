@@ -15,6 +15,7 @@ import javax.net.ssl.TrustManagerFactory;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -255,24 +256,67 @@ public final class CentralTls {
 
     /**
      * A connected, handshaken TLS client socket to the monitor at
-     * {@code host}:{@code port}. The certificate must chain to the configured
-     * truststore and contain {@code host} (name or IP) in its SANs. Throws —
-     * never silently downgrades — when the truststore is missing or the
-     * certificate fails validation.
+     * {@code host}:{@code port}, validated against the configured truststore.
      */
     public static SSLSocket newClientSocket(String host, int port) throws IOException {
+        return newClientSocket(host, port, "");
+    }
+
+    /**
+     * A connected, handshaken TLS client socket to the monitor at
+     * {@code host}:{@code port}. The certificate must chain to the configured
+     * truststore and contain {@code host} (name or IP) in its SANs.
+     *
+     * <p>Automatic pairing: when no truststore exists yet (or a rotated monitor
+     * certificate was just rejected) and the monitor's own beacon advertised a
+     * certificate fingerprint, the presented certificate is pinned after
+     * matching that fingerprint and the connection is re-established with full
+     * validation. Without a beacon fingerprint the failure stays a failure -
+     * never a silent downgrade.
+     */
+    public static SSLSocket newClientSocket(String host, int port,
+                                            String expectedFingerprint) throws IOException {
         if (plaintextDevModeEnabled()) {
             throw new IllegalStateException(
                     "TLS was requested but plaintext development mode is enabled");
         }
+        String wanted = expectedFingerprint == null
+                ? "" : expectedFingerprint.trim().toLowerCase(java.util.Locale.ROOT);
         File truststoreFile = configuredTruststoreFile();
-        if (!truststoreFile.isFile()) {
-            throw new IOException("Central monitor truststore not found: " + truststoreFile
-                    + ". Copy the invigilator's truststore to this PC"
-                    + " (see docs/CENTRAL_TLS.md).");
+        if (truststoreFile.isFile()) {
+            try {
+                return tlsConnect(host, port, loadTruststoreLeniently(truststoreFile));
+            } catch (IOException trustedFailure) {
+                // A rotated monitor certificate is rejected here; when the beacon
+                // advertises the new fingerprint the student re-pairs below. Any
+                // non-certificate failure (unreachable, timeout) surfaces as-is.
+                String message = trustedFailure.getMessage() == null ? "" : trustedFailure.getMessage();
+                boolean certificateProblem = message.contains("PKIX")
+                        || message.contains("certification path")
+                        || message.contains("certificate");
+                if (wanted.isEmpty() || !certificateProblem) throw trustedFailure;
+            }
+        } else if (wanted.isEmpty()) {
+            throw new IOException("No invigilator monitor beacon has been heard on this network "
+                    + "yet and no truststore is installed - start the monitor first; it "
+                    + "announces its certificate every two seconds for automatic pairing.");
         }
+        // First contact (or a rotated certificate): pin the presented certificate
+        // ONLY when it matches the fingerprint the monitor itself broadcast.
+        X509Certificate presented = captureCertificate(host, port);
+        String actual = sha256Hex(presented);
+        if (actual.isEmpty() || !actual.equals(wanted)) {
+            throw new IOException("The monitor's certificate does not match its beacon ("
+                    + (actual.isEmpty() ? "unreadable" : actual.substring(0, Math.min(16, actual.length()))
+                    + "...") + ") - restart the monitor on this network and join again.");
+        }
+        upsertPinnedCertificate(truststoreFile, presented);
+        return tlsConnect(host, port, loadTruststoreLeniently(truststoreFile));
+    }
+
+    /** Full TLS connect with endpoint + SAN validation against a truststore. */
+    private static SSLSocket tlsConnect(String host, int port, KeyStore trustStore) throws IOException {
         try {
-            KeyStore trustStore = loadTruststoreLeniently(truststoreFile);
             TrustManagerFactory tmf = TrustManagerFactory.getInstance(
                     TrustManagerFactory.getDefaultAlgorithm());
             tmf.init(trustStore);
@@ -297,8 +341,14 @@ public final class CentralTls {
 
     /** Opens the configured monitor client transport, or explicit development TCP. */
     public static Socket openClientSocket(String host, int port) throws IOException {
+        return openClientSocket(host, port, "");
+    }
+
+    /** Opens the monitor client transport with an optional beacon fingerprint. */
+    public static Socket openClientSocket(String host, int port,
+                                          String expectedFingerprint) throws IOException {
         if (plaintextDevModeEnabled()) return new Socket();
-        return newClientSocket(host, port);
+        return newClientSocket(host, port, expectedFingerprint);
     }
 
     /**
@@ -353,6 +403,275 @@ public final class CentralTls {
         throw new IOException("Central monitor certificate does not cover '" + wanted
                 + "'; its SAN entries are " + names
                 + ". Regenerate the certificate with this address (docs/CENTRAL_TLS.md).");
+    }
+
+    // ------------------------------------------------ certificate rotation ----
+
+    /**
+     * Every IPv4 address on an up, non-loopback interface. The certificate is
+     * issued with all of them in its SANs so a student may type any address the
+     * invigilator PC answers on - including a hotspot adapter that has no
+     * default gateway of its own.
+     */
+    public static java.util.LinkedHashSet<String> allLanIpv4s() {
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
+        try {
+            java.util.Enumeration<java.net.NetworkInterface> interfaces =
+                    java.net.NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                java.net.NetworkInterface ni = interfaces.nextElement();
+                if (!ni.isUp() || ni.isLoopback()) continue;
+                java.util.Enumeration<java.net.InetAddress> addresses = ni.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    java.net.InetAddress address = addresses.nextElement();
+                    if (address instanceof java.net.Inet4Address) out.add(address.getHostAddress());
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return out;
+    }
+
+    /**
+     * The LAN addresses a student could realistically be told to type:
+     * site-local IPv4s minus adapters whose churn must never rotate the
+     * certificate (WSL, Hyper-V, tunnels, TAP). A Windows Mobile Hotspot
+     * adapter counts - its name says "Virtual" but it is exactly the address
+     * students sit behind.
+     */
+    private static java.util.LinkedHashSet<String> studentFacingLanIps() {
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
+        for (String ip : allLanIpv4s()) {
+            if (!ip.matches("\\d{1,3}(\\.\\d{1,3}){3}")) continue;
+            java.net.InetAddress a;
+            try {
+                a = java.net.InetAddress.getByName(ip); // literal IP: never a DNS lookup
+            } catch (Exception e) {
+                continue;
+            }
+            if (!a.isSiteLocalAddress()) continue;
+            out.add(ip);
+        }
+        out.removeAll(churningVirtualIps());
+        return out;
+    }
+
+    /** Site-local IPv4s on adapters whose addresses come and go with tooling. */
+    private static java.util.Set<String> churningVirtualIps() {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        try {
+            java.util.Enumeration<java.net.NetworkInterface> interfaces =
+                    java.net.NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                java.net.NetworkInterface ni = interfaces.nextElement();
+                String name = (ni.getName() + " " + ni.getDisplayName()).toLowerCase(java.util.Locale.ROOT);
+                if (name.contains("wsl") || name.contains("hyper-v") || name.contains("vethernet")
+                        || name.contains("virtualbox") || name.contains("tunnel")
+                        || name.contains("tailscale") || name.contains("tap-")) {
+                    java.util.Enumeration<java.net.InetAddress> addresses = ni.getInetAddresses();
+                    while (addresses.hasMoreElements()) {
+                        java.net.InetAddress a = addresses.nextElement();
+                        if (a instanceof java.net.Inet4Address) out.add(a.getHostAddress());
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return out;
+    }
+
+    /**
+     * The ip SAN entries of the monitor certificate currently on disk; empty
+     * when the keystore is missing, unreadable or passwordless - each of those
+     * states needs a fresh identity anyway.
+     */
+    private static java.util.Set<String> certificateIpSans() {
+        File key = configuredKeystoreFile();
+        if (!key.isFile()) return new java.util.HashSet<>();
+        char[] password;
+        try {
+            password = storePassword(true);
+        } catch (Exception e) {
+            return new java.util.HashSet<>();
+        }
+        try {
+            KeyStore store = loadKeyStore(key, password);
+            Certificate[] chain = store.getCertificateChain("central");
+            if (chain == null || chain.length == 0 || !(chain[0] instanceof X509Certificate cert)) {
+                return new java.util.HashSet<>();
+            }
+            java.util.Set<String> ips = new java.util.HashSet<>();
+            Collection<List<?>> sans = cert.getSubjectAlternativeNames();
+            if (sans != null) {
+                for (List<?> san : sans) {
+                    if (san.size() >= 2 && san.get(0).equals(7) && san.get(1) instanceof String value) {
+                        ips.add(value.toLowerCase(java.util.Locale.ROOT));
+                    }
+                }
+            }
+            return ips;
+        } catch (Exception e) {
+            return new java.util.HashSet<>();
+        } finally {
+            Arrays.fill(password, '\0');
+        }
+    }
+
+    /**
+     * Rotate the monitor certificate when the machine's current student-facing
+     * LAN addresses are not all covered by its SANs - the network changed
+     * (hotspot, new subnet) and every student connection would otherwise fail
+     * certificate validation with no fix short of manual regeneration. The
+     * stale identity is preserved as an orphaned backup, then a fresh
+     * certificate is provisioned with today's addresses.
+     *
+     * @return true when an existing certificate was replaced, so the invigilator
+     *         knows student PCs will re-pair via the beacon (offline-imported
+     *         truststore copies need a re-export). A first provision returns false.
+     */
+    public static synchronized boolean ensureCurrentIpsCovered() throws IOException {
+        File key = configuredKeystoreFile();
+        if (!key.isFile()) {
+            ensureServerSetup(); // first provision already covers today's addresses
+            return false;
+        }
+        java.util.Set<String> wanted = studentFacingLanIps();
+        if (certificateIpSans().containsAll(wanted)) return false;
+        String suffix = ".orphaned-" + System.currentTimeMillis();
+        Files.move(key.toPath(), new File(key + suffix).toPath());
+        File trust = configuredTruststoreFile();
+        if (trust.isFile() && trust.equals(defaultTruststoreFile())) {
+            Files.move(trust.toPath(), new File(trust + suffix).toPath());
+        }
+        ensureServerSetup();
+        return true;
+    }
+
+    // ------------------------------------------------------ auto-pairing ----
+
+    /**
+     * TLS handshake that records the presented certificate instead of trusting
+     * it. The result is only ever used after an explicit fingerprint match.
+     */
+    private static X509Certificate captureCertificate(String host, int port) throws IOException {
+        final X509Certificate[] captured = new X509Certificate[1];
+        try {
+            javax.net.ssl.TrustManager capture = new javax.net.ssl.X509TrustManager() {
+                @Override public void checkClientTrusted(
+                        java.security.cert.X509Certificate[] chain, String authType)
+                        throws java.security.cert.CertificateException {
+                    throw new java.security.cert.CertificateException("no client certificates expected");
+                }
+
+                @Override public void checkServerTrusted(
+                        java.security.cert.X509Certificate[] chain, String authType) {
+                    if (chain != null && chain.length > 0
+                            && chain[0] instanceof X509Certificate cert) {
+                        captured[0] = cert;
+                    }
+                }
+
+                @Override public java.security.cert.X509Certificate[] getAcceptedIssuers() {
+                    return new java.security.cert.X509Certificate[0];
+                }
+            };
+            SSLContext context = SSLContext.getInstance("TLS");
+            context.init(null, new javax.net.ssl.TrustManager[]{capture}, null);
+            SSLSocket socket = (SSLSocket) context.getSocketFactory().createSocket();
+            socket.setEnabledProtocols(enabledProtocols(socket.getSupportedProtocols()));
+            socket.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MS);
+            socket.setSoTimeout(HANDSHAKE_TIMEOUT_MS);
+            socket.startHandshake();
+            Certificate[] peers = socket.getSession().getPeerCertificates();
+            socket.close();
+            if (peers != null && peers.length > 0 && peers[0] instanceof X509Certificate cert) {
+                return cert;
+            }
+            throw new IOException("The monitor did not present a certificate");
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IOException("Could not read the monitor's certificate: " + e.getMessage(), e);
+        }
+    }
+
+    /** Pin a beacon-verified monitor certificate into the local truststore. */
+    private static void upsertPinnedCertificate(File trust, X509Certificate certificate)
+            throws IOException {
+        KeyStore store;
+        try {
+            store = KeyStore.getInstance("PKCS12");
+            if (trust.isFile()) {
+                try (InputStream in = Files.newInputStream(trust.toPath())) {
+                    store.load(in, DEFAULT_TRUSTSTORE_PASSWORD.toCharArray());
+                }
+            } else {
+                store.load(null, null);
+                File dir = trust.getParentFile();
+                if (dir != null && !dir.isDirectory() && !dir.mkdirs()) {
+                    throw new IOException("Could not create " + dir);
+                }
+            }
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            // An unreadable existing store is replaced rather than failing the join.
+            try {
+                store = KeyStore.getInstance("PKCS12");
+                store.load(null, null);
+            } catch (Exception ignored) {
+                throw new IOException("Could not open the local truststore for pairing", e);
+            }
+        }
+        try {
+            String alias = "central-" + sha256Hex(certificate).substring(0, 8);
+            store.setCertificateEntry(alias, certificate);
+            try (OutputStream out = Files.newOutputStream(trust.toPath())) {
+                store.store(out, DEFAULT_TRUSTSTORE_PASSWORD.toCharArray());
+            }
+        } catch (IOException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IOException("Could not save the paired monitor certificate: "
+                    + e.getMessage(), e);
+        }
+    }
+
+    /** Lowercase SHA-256 hex of a certificate's DER encoding; "" when unavailable. */
+    public static String sha256Hex(X509Certificate certificate) {
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(certificate.getEncoded());
+            StringBuilder out = new StringBuilder(digest.length * 2);
+            for (byte b : digest) out.append(String.format("%02x", b));
+            return out.toString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /** The fingerprint of this PC's monitor certificate; "" when none exists yet. */
+    public static String monitorCertificateFingerprint() {
+        File key = configuredKeystoreFile();
+        if (!key.isFile()) return "";
+        char[] password;
+        try {
+            password = storePassword(true);
+        } catch (Exception e) {
+            return "";
+        }
+        try {
+            KeyStore store = loadKeyStore(key, password);
+            Certificate[] chain = store.getCertificateChain("central");
+            if (chain == null || chain.length == 0 || !(chain[0] instanceof X509Certificate cert)) {
+                return "";
+            }
+            return sha256Hex(cert);
+        } catch (Exception e) {
+            return "";
+        } finally {
+            Arrays.fill(password, '\0');
+        }
     }
 
     // ----------------------------------------------------------- helpers ----

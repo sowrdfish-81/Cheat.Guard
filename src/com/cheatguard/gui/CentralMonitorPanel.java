@@ -28,6 +28,7 @@ import java.util.Map;
 import java.security.SecureRandom;
 import java.util.concurrent.CopyOnWriteArrayList;
 import com.cheatguard.watchdog.CentralAuth;
+import com.cheatguard.watchdog.CentralReporter;
 import com.cheatguard.watchdog.CentralTls;
 
 /**
@@ -96,6 +97,7 @@ public class CentralMonitorPanel extends JPanel {
     private volatile boolean running;
     private ServerSocket serverSocket;
     private Thread acceptThread;
+    private volatile Thread beaconThread;
     private volatile String examCode = "";
     private volatile boolean firewallRuleAdded;
     private BufferedWriter csvWriter;
@@ -206,6 +208,8 @@ public class CentralMonitorPanel extends JPanel {
         start.addActionListener(e -> startMonitor());
         JButton stop = UITheme.ghost("Stop");
         stop.addActionListener(e -> stopMonitor());
+        JButton exportTrust = UITheme.ghost("Export student truststore...");
+        exportTrust.addActionListener(e -> exportTruststore());
 
         JPanel controls = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         controls.setOpaque(false);
@@ -214,6 +218,7 @@ public class CentralMonitorPanel extends JPanel {
         controls.add(shuffle);
         controls.add(start);
         controls.add(stop);
+        controls.add(exportTrust);
         counters.setFont(UITheme.FONT_SECTION);
         JPanel controlsRow = new JPanel(new BorderLayout(10, 0));
         controlsRow.setOpaque(false);
@@ -320,18 +325,34 @@ public class CentralMonitorPanel extends JPanel {
             return;
         }
         examCode = code;
+        boolean certificateRotated = false;
         try {
             openFirewall();
             ensureFirewallShutdownHook();
+            // Refresh the certificate when the network changed since it was
+            // issued: without this, every student connection would fail
+            // certificate validation after a hotspot/subnet move.
+            if (!CentralTls.plaintextDevModeEnabled()) {
+                certificateRotated = CentralTls.ensureCurrentIpsCovered();
+            }
             serverSocket = CentralTls.openServerSocket(CENTRAL_TCP_PORT);
             openCsv();
             running = true;
             acceptThread = new Thread(this::acceptLoop, "CheatGuard-CentralAccept");
             acceptThread.setDaemon(true);
             acceptThread.start();
-            statusLabel.setText("Your LAN IP: " + firstLanIp() + "  |  Exam code: " + code
+            startBeacon();
+            statusLabel.setText("Your LAN IP: " + String.join(", ", lanIps())
+                    + "  |  Exam code: " + code
                     + "  |  Students must be on the SAME Wi-Fi/network as you.");
             statusLabel.setForeground(UITheme.ACCENT_TEAL);
+            if (certificateRotated) {
+                JOptionPane.showMessageDialog(this,
+                        "The network changed, so the monitor certificate was regenerated.\n"
+                                + "Student PCs pair automatically via the beacon - only PCs with an\n"
+                                + "offline-imported truststore need a freshly exported copy.",
+                        "Certificate regenerated", JOptionPane.INFORMATION_MESSAGE);
+            }
         } catch (Exception e) {
             statusLabel.setText("Could not start: " + e.getMessage() + " (port already in use?)");
             statusLabel.setForeground(UITheme.ACCENT_RED);
@@ -349,6 +370,8 @@ public class CentralMonitorPanel extends JPanel {
     }
 
     private void cleanupMonitorResources() {
+        running = false;
+        stopBeacon();
         try { if (serverSocket != null) serverSocket.close(); } catch (Exception ignored) {}
         serverSocket = null;
         for (java.io.Closeable c : closables) {
@@ -739,47 +762,143 @@ public class CentralMonitorPanel extends JPanel {
      * which one is really online). Fallback: the Java enumeration with virtual
      * adapters excluded.
      */
-    private String firstLanIp() {
+    /**
+     * This machine's candidate LAN IPs - the addresses students may type, best
+     * first. Primary source: adapters that own the default gateway (Windows
+     * knows which one is really online). Then every other site-local address on
+     * an adapter students could sit behind: on a shared/hotspot setup the
+     * hotspot adapter (e.g. 192.168.137.1) has NO default gateway, and the old
+     * gateway-only picker showed the internet-facing address instead - an IP
+     * the students could never reach. Virtual-tooling adapters (WSL, Hyper-V,
+     * VirtualBox, tunnels) are excluded from the fallback; a Windows Mobile
+     * Hotspot adapter is not, despite the "Virtual" in its name.
+     */
+    private static List<String> lanIps() {
+        java.util.LinkedHashSet<String> out = new java.util.LinkedHashSet<>();
         try {
             Process p = new ProcessBuilder("powershell.exe", "-NoProfile", "-NonInteractive",
                     "-WindowStyle", "Hidden", "-Command",
                     "(Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway } "
-                            + "| Select-Object -First 1).IPv4Address.IPAddress")
+                            + "| ForEach-Object { $_.IPv4Address.IPAddress }) -join ' '")
                     .redirectErrorStream(true).start();
             // Wait BEFORE reading: readAllBytes blocks until EOF, so reading first
-            // would make this timeout unreachable. Output is one IP line.
+            // would make this timeout unreachable. Output is one IP line per adapter.
             if (!p.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)) {
                 p.destroyForcibly();
             } else {
-                String out = new String(p.getInputStream().readAllBytes(),
+                String outText = new String(p.getInputStream().readAllBytes(),
                         StandardCharsets.UTF_8).trim();
-                if (out.matches("\\d{1,3}(\\.\\d{1,3}){3}")) return out;
+                java.util.regex.Matcher m = java.util.regex.Pattern
+                        .compile("\\d{1,3}(\\.\\d{1,3}){3}").matcher(outText);
+                while (m.find()) out.add(m.group());
             }
         } catch (Exception ignored) {
         }
         try {
             Enumeration<NetworkInterface> ifs = NetworkInterface.getNetworkInterfaces();
-            String fallback = "";
             while (ifs.hasMoreElements()) {
                 NetworkInterface ni = ifs.nextElement();
                 if (!ni.isUp() || ni.isLoopback()) continue;
                 String name = (ni.getName() + " " + ni.getDisplayName()).toLowerCase();
-                if (name.contains("wsl") || name.contains("hyper-v") || name.contains("virtual")
-                        || name.contains("vethernet") || name.contains("loopback")
-                        || name.contains("tunnel") || name.contains("tailscale")) continue;
+                if (name.contains("wsl") || name.contains("hyper-v") || name.contains("vethernet")
+                        || name.contains("virtualbox") || name.contains("loopback")
+                        || name.contains("tunnel") || name.contains("tailscale")
+                        || name.contains("tap-")) continue;
                 Enumeration<InetAddress> addrs = ni.getInetAddresses();
                 while (addrs.hasMoreElements()) {
                     InetAddress a = addrs.nextElement();
                     if (!a.isSiteLocalAddress()) continue;
-                    String ip = a.getHostAddress();
-                    if (ip.startsWith("192.168.")) return ip;
-                    if (fallback.isEmpty()) fallback = ip;
+                    out.add(a.getHostAddress());
                 }
             }
-            if (!fallback.isEmpty()) return fallback;
         } catch (Exception ignored) {
         }
-        return "127.0.0.1";
+        if (out.isEmpty()) out.add("127.0.0.1");
+        return new ArrayList<>(out);
+    }
+
+    // ------------------------------------------------------------- beacon --
+
+    /**
+     * Broadcast the monitor's presence every two seconds so student PCs can
+     * find this machine without typing an IP - the address changes whenever the
+     * network changes (hotspot, new room), and a typed IP from yesterday fails
+     * silently. The beacon carries the monitor certificate's fingerprint so a
+     * student PC can pair automatically; the student connects back to the
+     * address the packet actually came from, which is by definition the address
+     * it can reach.
+     */
+    private void startBeacon() {
+        stopBeacon();
+        Thread t = new Thread(() -> {
+            try (java.net.DatagramSocket socket = new java.net.DatagramSocket()) {
+                socket.setBroadcast(true);
+                String fingerprint = CentralTls.monitorCertificateFingerprint();
+                byte[] payload = (CentralReporter.BEACON_PREFIX + CENTRAL_TCP_PORT
+                        + (fingerprint.isEmpty() ? "" : "@@@" + fingerprint))
+                        .getBytes(StandardCharsets.UTF_8);
+                java.util.LinkedHashSet<String> targets = new java.util.LinkedHashSet<>();
+                targets.add("255.255.255.255");
+                for (String ip : CentralTls.allLanIpv4s()) {
+                    int lastDot = ip.lastIndexOf('.');
+                    if (lastDot > 0) targets.add(ip.substring(0, lastDot) + ".255");
+                }
+                while (running) {
+                    for (String target : targets) {
+                        if (!running) break;
+                        try {
+                            socket.send(new java.net.DatagramPacket(payload, payload.length,
+                                    InetAddress.getByName(target),
+                                    CentralReporter.DISCOVERY_UDP_PORT));
+                        } catch (Exception ignored) {
+                            // an unroutable broadcast target must not stop the others
+                        }
+                    }
+                    Thread.sleep(2000);
+                }
+            } catch (Exception ignored) {
+                // discovery is best-effort; manual IP entry still works
+            }
+        }, "CheatGuard-CentralBeacon");
+        t.setDaemon(true);
+        t.start();
+        beaconThread = t;
+    }
+
+    private void stopBeacon() {
+        Thread t = beaconThread;
+        beaconThread = null;
+        if (t != null) t.interrupt();
+    }
+
+    // -------------------------------------------------------- truststore ----
+
+    /** Optional offline fallback: copy the student truststore somewhere shareable. */
+    private void exportTruststore() {
+        File trust = CentralTls.configuredTruststoreFile();
+        if (!trust.isFile()) {
+            JOptionPane.showMessageDialog(this,
+                    "No truststore exists yet - press Start monitor once; the\n"
+                            + "certificate is created automatically on first start.",
+                    "Nothing to export", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
+        chooser.setSelectedFile(new File(trust.getName()));
+        if (chooser.showSaveDialog(this) != javax.swing.JFileChooser.APPROVE_OPTION) return;
+        File target = chooser.getSelectedFile();
+        try {
+            java.nio.file.Files.copy(trust.toPath(), target.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            JOptionPane.showMessageDialog(this,
+                    "Copied. Student PCs normally pair automatically via the\n"
+                            + "beacon - this file is an optional offline fallback:\n"
+                            + "Settings > Import central truststore on a student PC.",
+                    "Truststore exported", JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Could not copy: " + ex.getMessage(),
+                    "Export failed", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private static String randomCode() {
