@@ -85,6 +85,8 @@ public class CentralMonitorPanel extends JPanel {
     private final JTable eventTable = new JTable(eventModel);
 
     private final JLabel statusLabel = new JLabel("Monitor stopped.");
+    private final JLabel lanIpLabel = new JLabel();
+    private final JLabel activeCodeLabel = new JLabel();
     private final JLabel counters = new JLabel("PCs: 0   Alerts: 0");
     private final JLabel detailTitle = new JLabel();
     private StudentRecord detailStudent;
@@ -234,13 +236,20 @@ public class CentralMonitorPanel extends JPanel {
         controlsRow.add(counters, BorderLayout.EAST);
 
         statusLabel.setFont(UITheme.FONT_BODY);
+        configureCopyLabel(lanIpLabel, "LAN IP: ");
+        configureCopyLabel(activeCodeLabel, "Exam code: ");
+        JPanel statusRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 14, 0));
+        statusRow.setOpaque(false);
+        statusRow.add(statusLabel);
+        statusRow.add(lanIpLabel);
+        statusRow.add(activeCodeLabel);
 
         JPanel listCard = UITheme.card();
         listCard.setLayout(new BorderLayout(10, 12));
         JPanel top = new JPanel(new BorderLayout(0, 12));
         top.setOpaque(false);
         top.add(controlsRow, BorderLayout.NORTH);
-        top.add(statusLabel, BorderLayout.SOUTH);
+        top.add(statusRow, BorderLayout.SOUTH);
         listCard.add(top, BorderLayout.NORTH);
         listCard.add(studentScroll, BorderLayout.CENTER);
 
@@ -350,10 +359,10 @@ public class CentralMonitorPanel extends JPanel {
             acceptThread.setDaemon(true);
             acceptThread.start();
             startBeacon();
-            statusLabel.setText("Your LAN IP: " + String.join(", ", lanIps())
-                    + "  |  Exam code: " + code
-                    + "  |  Students must be on the SAME Wi-Fi/network as you.");
+            statusLabel.setText("Students must be on the SAME Wi-Fi/network as you.");
             statusLabel.setForeground(UITheme.ACCENT_TEAL);
+            setCopyValue(lanIpLabel, "LAN IP: ", String.join(", ", lanIps()));
+            setCopyValue(activeCodeLabel, "Exam code: ", code);
             if (certificateRotated) {
                 JOptionPane.showMessageDialog(this,
                         "The network changed, so the monitor certificate was regenerated.\n"
@@ -376,9 +385,36 @@ public class CentralMonitorPanel extends JPanel {
         statusLabel.setForeground(UITheme.TEXT_MUTED);
     }
 
+    /** A teal label that copies its value to the clipboard when clicked. */
+    private void configureCopyLabel(JLabel label, String prefix) {
+        label.setFont(UITheme.FONT_SECTION);
+        label.setForeground(UITheme.ACCENT_TEAL);
+        label.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        label.setToolTipText("Click to copy");
+        label.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override public void mouseClicked(java.awt.event.MouseEvent e) {
+                String value = label.getClientProperty("copyValue") instanceof String s ? s : "";
+                if (value.isBlank()) return;
+                Toolkit.getDefaultToolkit().getSystemClipboard()
+                        .setContents(new java.awt.datatransfer.StringSelection(value), null);
+                label.setText(prefix + value + "  (Copied)");
+                Timer timer = new Timer(1400, ev -> label.setText(prefix + value));
+                timer.setRepeats(false);
+                timer.start();
+            }
+        });
+    }
+
+    private void setCopyValue(JLabel label, String prefix, String value) {
+        label.putClientProperty("copyValue", value == null ? "" : value);
+        label.setText(prefix + (value == null ? "" : value));
+    }
+
     private void cleanupMonitorResources() {
         running = false;
         stopBeacon();
+        setCopyValue(lanIpLabel, "LAN IP: ", "");
+        setCopyValue(activeCodeLabel, "Exam code: ", "");
         try { if (serverSocket != null) serverSocket.close(); } catch (Exception ignored) {}
         serverSocket = null;
         for (java.io.Closeable c : closables) {
