@@ -727,12 +727,19 @@ public class CentralMonitorPanel extends JPanel {
         try {
             Process p = new ProcessBuilder("netsh.exe", "advfirewall", "firewall", "show", "rule",
                     "name=" + FIREWALL_RULE_NAME).redirectErrorStream(true).start();
-            p.getInputStream().readAllBytes();
+            String output = new String(p.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
             if (!p.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
                 p.destroyForcibly();
                 return false;
             }
-            return p.exitValue() == 0;
+            String normalized = output.toLowerCase(java.util.Locale.ROOT);
+            // netsh can return exit code 0 even for "No rules match". Do not
+            // treat that as success or the elevated add step is skipped and
+            // student PCs cannot reach the listener.
+            return p.exitValue() == 0
+                    && !normalized.contains("no rules match")
+                    && (normalized.contains("rule name")
+                        || normalized.contains(FIREWALL_RULE_NAME.toLowerCase(java.util.Locale.ROOT)));
         } catch (Exception ignored) {
             return false;
         }
