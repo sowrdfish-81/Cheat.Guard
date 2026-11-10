@@ -190,6 +190,35 @@ public class AppConfig {
         return changed;
     }
 
+    /**
+     * Discord installs each update into a new versioned folder.  A process
+     * started after the exam begins may therefore have a name/path that was
+     * not present when the allowlist was scanned.  Keep the trust decision
+     * scoped to Discord's own install roots instead of trusting a generic exe
+     * name such as Update.exe everywhere.
+     */
+    public boolean isDiscordExecutablePath(String path) {
+        if (path == null || path.isBlank()) return false;
+        try {
+            File candidate = new File(path).getCanonicalFile();
+            String localPath = System.getenv("LOCALAPPDATA");
+            File local = localPath == null || localPath.isBlank()
+                    ? new File(System.getProperty("user.home"), "AppData\\Local")
+                    : new File(localPath);
+            for (String rootName : new String[]{"Discord", "DiscordPTB", "DiscordCanary"}) {
+                File root = new File(local, rootName).getCanonicalFile();
+                String rootText = root.getPath().toLowerCase(Locale.ROOT);
+                String candidateText = candidate.getPath().toLowerCase(Locale.ROOT);
+                if (candidateText.startsWith(rootText + File.separator)
+                        && candidate.getName().toLowerCase(Locale.ROOT).endsWith(".exe")) {
+                    return true;
+                }
+            }
+        } catch (IOException ignored) {
+        }
+        return false;
+    }
+
     private void collectExecutables(File dir, List<File> out) {
         File[] children = dir.listFiles();
         if (children == null) return;

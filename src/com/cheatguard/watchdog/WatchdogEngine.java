@@ -468,8 +468,10 @@ public class WatchdogEngine implements Runnable {
                     : null;
             boolean flagged = outsidePath != null || shownFolder != null;
             boolean forced = isForcedClose(proc.getName());
+            boolean discordChild = !forced && com.cheatguard.config.AppConfig.getInstance()
+                    .isDiscordExecutablePath(proc.getImagePath());
             boolean skip = !flagged
-                    && ((!forced && whitelist.isAllowed(proc.getName()))
+                    && ((!forced && (whitelist.isAllowed(proc.getName()) || discordChild))
                         || isExamWorkspaceBinary(proc.getImagePath())
                         // The payload exe an approved launcher spawns (Discord.exe out
                         // of the allowed Update.exe) is part of that app, not a
