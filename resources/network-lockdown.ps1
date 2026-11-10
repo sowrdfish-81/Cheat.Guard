@@ -569,6 +569,25 @@ function Set-AllowedDestinationRules([string[]]$Ips) {
         -Action Allow -Profile Any -ErrorAction Stop | Out-Null
 }
 
+# Discord voice/media uses dynamic UDP endpoints, so destination-IP rules alone
+# cannot keep an explicitly approved Discord client connected. Allow only the
+# executables inside Discord's own install roots; do not grant this exception to
+# arbitrary AppData programs.
+function Add-DiscordEgressAllowRules {
+    $local = $env:LOCALAPPDATA
+    if ([string]::IsNullOrWhiteSpace($local)) { return }
+    foreach ($rootName in @('Discord','DiscordPTB','DiscordCanary')) {
+        $root = Join-Path $local $rootName
+        if (-not (Test-Path -LiteralPath $root)) { continue }
+        foreach ($exe in @(Get-ChildItem -LiteralPath $root -Recurse -File -Filter *.exe -ErrorAction SilentlyContinue)) {
+            New-NetFirewallRule -PolicyStore PersistentStore `
+                -DisplayName ('Cheat.Guard - approved Discord ' + $exe.Name) -Group $groupName `
+                -Direction Outbound -Program $exe.FullName -Action Allow -Profile Any `
+                -ErrorAction SilentlyContinue | Out-Null
+        }
+    }
+}
+
 # Plain TCP reachability of an approved domain on 443 - proves the allowlist
 # actually carries traffic on this network without any HTTP/certificate quirks.
 function Test-HttpsReachable([string]$Target) {
@@ -595,6 +614,7 @@ function Apply-EgressLockdown {
     $ips = @(Read-AllowedIps)
     if ($ips.Count -lt 1) { return $false }
     Set-AllowedDestinationRules $ips
+    Add-DiscordEgressAllowRules
 
     $gateways = @()
     try {
