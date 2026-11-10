@@ -874,29 +874,40 @@ public class CentralMonitorPanel extends JPanel {
     private void startBeacon() {
         stopBeacon();
         Thread t = new Thread(() -> {
-            try (java.net.DatagramSocket socket = new java.net.DatagramSocket()) {
-                socket.setBroadcast(true);
+            try {
                 String fingerprint = CentralTls.monitorCertificateFingerprint();
                 byte[] payload = (CentralReporter.BEACON_PREFIX + CENTRAL_TCP_PORT
                         + (fingerprint.isEmpty() ? "" : "@@@" + fingerprint))
                         .getBytes(StandardCharsets.UTF_8);
-                java.util.LinkedHashSet<String> targets = new java.util.LinkedHashSet<>();
-                targets.add("255.255.255.255");
-                for (String ip : CentralTls.allLanIpv4s()) {
-                    int lastDot = ip.lastIndexOf('.');
-                    if (lastDot > 0) targets.add(ip.substring(0, lastDot) + ".255");
-                }
                 while (running) {
-                    for (String target : targets) {
+                    java.util.LinkedHashSet<String> ips = CentralTls.allLanIpv4s();
+                    // Bind one short-lived sender to every active IPv4 interface.
+                    // This matters on PCs with Wi-Fi + Ethernet/virtual adapters:
+                    // a single unbound socket may route every broadcast through
+                    // the wrong interface and students then never discover us.
+                    for (String ip : ips) {
                         if (!running) break;
-                        try {
-                            socket.send(new java.net.DatagramPacket(payload, payload.length,
-                                    InetAddress.getByName(target),
+                        int lastDot = ip.lastIndexOf('.');
+                        if (lastDot <= 0) continue;
+                        try (java.net.DatagramSocket socket = new java.net.DatagramSocket(
+                                new InetSocketAddress(InetAddress.getByName(ip), 0))) {
+                            socket.setBroadcast(true);
+                            byte[] copy = payload.clone();
+                            socket.send(new java.net.DatagramPacket(copy, copy.length,
+                                    InetAddress.getByName(ip.substring(0, lastDot) + ".255"),
                                     CentralReporter.DISCOVERY_UDP_PORT));
                         } catch (Exception ignored) {
-                            // an unroutable broadcast target must not stop the others
+                            // An unavailable adapter must not stop the other interfaces.
                         }
                     }
+                    // Also send the limited global broadcast for networks whose
+                    // subnet is not /24 and for older access points.
+                    try (java.net.DatagramSocket socket = new java.net.DatagramSocket()) {
+                        socket.setBroadcast(true);
+                        socket.send(new java.net.DatagramPacket(payload, payload.length,
+                                InetAddress.getByName("255.255.255.255"),
+                                CentralReporter.DISCOVERY_UDP_PORT));
+                    } catch (Exception ignored) {}
                     Thread.sleep(2000);
                 }
             } catch (Exception ignored) {
