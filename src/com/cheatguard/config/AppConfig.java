@@ -31,7 +31,7 @@ public class AppConfig {
             "cmd.exe", "powershell.exe", "wt.exe", "windowsterminal.exe",
             "conhost.exe", "openconsole.exe",
             // Discord launchers and child processes (paths are discovered below)
-            "discord.exe", "discordptb.exe", "discordcanary.exe",
+            "discord.exe", "discordptb.exe", "discordcanary.exe", "update.exe",
     };
 
     /** Fresh installs start with NO websites allowed: the invigilator adds the
