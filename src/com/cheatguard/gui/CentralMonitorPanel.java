@@ -109,6 +109,7 @@ public class CentralMonitorPanel extends JPanel {
     private JPanel detailPanel;
     private JButton markCheatBtn;
     private JButton markClearedBtn;
+    private JButton newCodeButton;
     private final JTextField codeField = new JTextField();
 
     public CentralMonitorPanel(Runnable onBack) {
@@ -215,8 +216,10 @@ public class CentralMonitorPanel extends JPanel {
                 BorderFactory.createEmptyBorder(6, 10, 6, 10)));
         codeField.setPreferredSize(new Dimension(150, 34));
         codeField.setText(randomCode());
-        JButton shuffle = UITheme.ghost("New code");
-        shuffle.addActionListener(e -> codeField.setText(randomCode()));
+        newCodeButton = UITheme.ghost("New code");
+        newCodeButton.addActionListener(e -> {
+            if (!running) codeField.setText(randomCode());
+        });
         JButton start = UITheme.primary("Start monitor");
         start.addActionListener(e -> startMonitor());
         JButton stop = UITheme.ghost("Stop");
@@ -226,7 +229,7 @@ public class CentralMonitorPanel extends JPanel {
         controls.setOpaque(false);
         controls.add(new JLabel("Exam code:"));
         controls.add(codeField);
-        controls.add(shuffle);
+        controls.add(newCodeButton);
         controls.add(start);
         controls.add(stop);
         counters.setFont(UITheme.FONT_SECTION);
@@ -361,6 +364,8 @@ public class CentralMonitorPanel extends JPanel {
             acceptThread.setDaemon(true);
             acceptThread.start();
             startBeacon();
+            newCodeButton.setEnabled(false);
+            codeField.setEditable(false);
             statusLabel.setText("Students must be on the SAME Wi-Fi/network as you.");
             statusLabel.setForeground(UITheme.ACCENT_TEAL);
             setCopyValue(lanIpLabel, "LAN IP: ", String.join(", ", lanIps()));
@@ -377,12 +382,16 @@ public class CentralMonitorPanel extends JPanel {
             // Clean up a partially opened firewall/socket/CSV without replacing
             // the actionable startup error with the generic "Monitor stopped".
             cleanupMonitorResources();
+            newCodeButton.setEnabled(true);
+            codeField.setEditable(true);
         }
     }
 
     private synchronized void stopMonitor() {
         running = false;
         cleanupMonitorResources();
+        newCodeButton.setEnabled(true);
+        codeField.setEditable(true);
         statusLabel.setText("Monitor stopped.");
         statusLabel.setForeground(UITheme.TEXT_MUTED);
     }
