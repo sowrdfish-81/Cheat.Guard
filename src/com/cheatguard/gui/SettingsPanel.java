@@ -322,9 +322,7 @@ public class SettingsPanel extends JPanel {
                 return;
             }
             java.io.File exe = new java.io.File(target);
-            config.addAllowedProcessPath(exe);
-            config.setAppDisplayName(exe.getName(), app.displayName());
-            config.addAppEntry(exe.getName());
+            allowExecutableFamily(exe, app.displayName(), shortcut[1]);
             // Keep the shortcut's launch arguments (Squirrel-style launchers such as
             // Discord's Update.exe need "--processStart <app>.exe" to open at all).
             config.setProcessArgs(exe.getName(), shortcut[1]);
@@ -340,9 +338,7 @@ public class SettingsPanel extends JPanel {
             chooser.setFileFilter(new FileNameExtensionFilter("Windows applications (*.exe)", "exe"));
             if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
                 java.io.File exe = chooser.getSelectedFile();
-                config.addAllowedProcessPath(exe);
-                config.setAppDisplayName(exe.getName(), realAppName(exe));
-                config.addAppEntry(exe.getName());
+                allowExecutableFamily(exe, realAppName(exe), null);
                 refresh(processModel, config.getAllowedProcesses());
             }
         });
@@ -357,6 +353,54 @@ public class SettingsPanel extends JPanel {
         return appCard("Allowed applications",
                 "Add apps by searching their real names - anything else a student opens is closed automatically. Use \"Choose .exe\" for a portable program.",
                 list, search, matchScroll, add, browse, clear, remove);
+    }
+
+    /**
+     * Add the selected executable and the helper/updater executables shipped
+     * beside it. Squirrel-style applications (Discord, Slack, etc.) put the
+     * launcher in the install root and the real program in an app-version
+     * child directory, so allowing only the picked file leaves child processes
+     * blocked during an exam.
+     */
+    private void allowExecutableFamily(java.io.File selected, String displayName, String shortcutArgs) {
+        if (selected == null || !selected.isFile()) return;
+        java.io.File root = selected.getParentFile();
+        if (root != null && root.getName().matches("app[-_].*")) {
+            root = root.getParentFile();
+        }
+        if (root == null || !root.isDirectory()) root = selected.getParentFile();
+
+        java.util.List<java.io.File> candidates = new java.util.ArrayList<>();
+        collectFamilyExecutables(root, 0, candidates);
+        if (candidates.isEmpty()) candidates.add(selected);
+        for (java.io.File exe : candidates) {
+            config.addAllowedProcessPath(exe);
+            String name = exe.getName();
+            String label = exe.equals(selected) ? displayName : realAppName(exe);
+            if (label == null || label.isBlank()) label = displayName;
+            config.setAppDisplayName(name, label);
+            config.addAppEntry(name);
+        }
+        // Preserve the selected shortcut's arguments for launchers such as
+        // Discord's Update.exe; helper executables need no synthetic args.
+        if (shortcutArgs != null && !shortcutArgs.isBlank()) {
+            config.setProcessArgs(selected.getName(), shortcutArgs);
+        }
+    }
+
+    private void collectFamilyExecutables(java.io.File dir, int depth,
+                                          java.util.List<java.io.File> out) {
+        if (dir == null || depth > 2 || out.size() >= 100) return;
+        java.io.File[] children = dir.listFiles();
+        if (children == null) return;
+        for (java.io.File child : children) {
+            if (child.isDirectory()) {
+                collectFamilyExecutables(child, depth + 1, out);
+            } else if (child.isFile() && child.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".exe")) {
+                out.add(child);
+            }
+            if (out.size() >= 100) return;
+        }
     }
 
     /** Read an exe's real name from its version information (best effort). */
