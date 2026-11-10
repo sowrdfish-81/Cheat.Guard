@@ -709,7 +709,7 @@ public class CentralMonitorPanel extends JPanel {
     // ------------------------------------------------------- firewall + csv ----
 
     private void openFirewall() {
-        runQuiet("netsh", "advfirewall", "firewall", "add", "rule",
+        runElevated("netsh", "advfirewall", "firewall", "add", "rule",
                 "name=" + FIREWALL_RULE_NAME, "dir=in", "action=allow",
                 "protocol=TCP", "localport=" + CENTRAL_TCP_PORT);
         firewallRuleAdded = true;
@@ -717,9 +717,30 @@ public class CentralMonitorPanel extends JPanel {
 
     private void closeFirewall() {
         if (!firewallRuleAdded) return;
-        runQuiet("netsh", "advfirewall", "firewall", "delete", "rule",
+        runElevated("netsh", "advfirewall", "firewall", "delete", "rule",
                 "name=" + FIREWALL_RULE_NAME);
         firewallRuleAdded = false;
+    }
+
+    /** The invigilator listener must be reachable through Windows Firewall. */
+    private static void runElevated(String... command) {
+        try {
+            StringBuilder args = new StringBuilder();
+            for (String part : command) {
+                if (args.length() > 0) args.append(',');
+                args.append("'").append(part.replace("'", "''")).append("'");
+            }
+            String ps = "$p=Start-Process -FilePath '" + command[0]
+                    + "' -ArgumentList " + args.substring(args.indexOf(",") + 1)
+                    + " -Verb RunAs -WindowStyle Hidden -PassThru -Wait; exit $p.ExitCode";
+            Process p = new ProcessBuilder("powershell.exe", "-NoProfile", "-Command", ps)
+                    .redirectErrorStream(true).start();
+            p.getInputStream().readAllBytes();
+            p.waitFor(15, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception ignored) {
+            // The status line still tells the invigilator to use the student's
+            // manual IP path if UAC was cancelled or unavailable.
+        }
     }
 
     private static void runQuiet(String... command) {

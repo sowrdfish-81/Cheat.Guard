@@ -1256,6 +1256,12 @@ try {
                 try { if ($p.DefaultOutboundAction -ne 'Block') { Set-NetFirewallProfile -Profile $p.Name -DefaultOutboundAction Block -ErrorAction Stop } } catch {}
             }
         }
+        if (($loopCount % 20) -eq 0) {
+            # Discord may install a new versioned folder while the exam is
+            # already running. Re-register every current helper so voice,
+            # media and the updater keep their dynamic UDP/TCP access.
+            Add-DiscordEgressAllowRules
+        }
         if ($script:egressActive -and ($loopCount % 10) -eq 0) {
             # Approved pages resolve new CDN addresses mid-exam; the allow rule follows.
             $ips = @(Read-AllowedIps)
