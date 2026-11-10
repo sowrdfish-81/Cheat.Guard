@@ -17,7 +17,7 @@ public class AppConfig {
      */
     private static final String[] DEFAULT_PROCESSES = {
             // editors and IDEs
-            "code.exe", "codeblocks.exe", "notepad.exe", "notepad++.exe", "sublime_text.exe",
+            "code.exe", "codeblocks.exe", "sublime_text.exe",
             "devcpp.exe", "idea64.exe", "clion64.exe",
             // compilers, linkers and build tools
             "gcc.exe", "g++.exe", "cc.exe", "c++.exe", "cpp.exe", "mingw32-gcc.exe",
@@ -50,6 +50,9 @@ public class AppConfig {
             "hackerearth.com", "topcoder.com", "cses.fi", "spoj.com", "vjudge.net",
             "lightoj.com", "beecrowd.com", "toph.co", "gstatic.com", "googleusercontent.com",
             "ssl.gstatic.com", "google.com", "accounts.google.com", "gmail.com");
+
+    /** Notepad and Notepad++ were mistakenly shipped as built-in defaults. */
+    private static final Set<String> REMOVED_IN_V5 = Set.of("notepad.exe", "notepad++.exe");
 
     /** Bump when the default lists change; missing defaults are merged in once per version. */
     private static final String DEFAULTS_VERSION = "5";
@@ -148,6 +151,9 @@ public class AppConfig {
             }
             for (String gone : REMOVED_IN_V4) {
                 if (allowedSites.remove(normalizeSite(gone))) merged = true;
+            }
+            for (String gone : REMOVED_IN_V5) {
+                if (allowedProcesses.remove(normalizeProcess(gone))) merged = true;
             }
         }
         // Discord is a multi-process Squirrel application. Discover every
