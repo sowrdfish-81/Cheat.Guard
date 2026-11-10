@@ -462,11 +462,17 @@ function Test-DenyPresent([string]$Path, [string]$Sid) {
 function Remove-DenyForSid([string]$Path, [string]$Sid) {
     if ([string]::IsNullOrWhiteSpace($Path) -or [string]::IsNullOrWhiteSpace($Sid)) { return }
     if (-not (Test-Path -LiteralPath $Path)) { return }
-    for ($attempt = 0; $attempt -lt 2; $attempt++) {
-        try { Invoke-AclTool icacls ('"' + $Path + '" /remove:d "*' + $Sid + '"') 30 | Out-Null } catch {}
-        if (-not (Test-DenyPresent $Path $Sid)) { return }
-        Start-Sleep -Milliseconds 300
-    }
+    # Restore is on the critical end-session path.  The old implementation ran
+    # a second icacls process to verify every single path, which made a profile
+    # with many children take minutes to unlock.  Removing a deny ACE is
+    # idempotent, so do one bounded removal and retry only when icacls itself
+    # reports failure.  The final state check still runs for stale-session
+    # recovery, where there is no normal close deadline.
+    try {
+        $code = Invoke-AclTool icacls ('"' + $Path + '" /remove:d "*' + $Sid + '"') 8
+        if ($code -eq 0) { return }
+    } catch {}
+    try { Invoke-AclTool icacls ('"' + $Path + '" /remove:d "*' + $Sid + '"') 8 | Out-Null } catch {}
 }
 
 # The signed-in student's profile folder. The helper runs elevated, so $env:USERPROFILE
