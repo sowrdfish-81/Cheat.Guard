@@ -371,7 +371,7 @@ public class SettingsPanel extends JPanel {
         if (root == null || !root.isDirectory()) root = selected.getParentFile();
 
         java.util.List<java.io.File> candidates = new java.util.ArrayList<>();
-        collectFamilyExecutables(root, 0, candidates);
+        collectFamilyExecutables(root, candidates);
         if (candidates.isEmpty()) candidates.add(selected);
         for (java.io.File exe : candidates) {
             config.addAllowedProcessPath(exe);
@@ -388,18 +388,17 @@ public class SettingsPanel extends JPanel {
         }
     }
 
-    private void collectFamilyExecutables(java.io.File dir, int depth,
+    private void collectFamilyExecutables(java.io.File dir,
                                           java.util.List<java.io.File> out) {
-        if (dir == null || depth > 2 || out.size() >= 100) return;
+        if (dir == null) return;
         java.io.File[] children = dir.listFiles();
         if (children == null) return;
         for (java.io.File child : children) {
             if (child.isDirectory()) {
-                collectFamilyExecutables(child, depth + 1, out);
+                collectFamilyExecutables(child, out);
             } else if (child.isFile() && child.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".exe")) {
                 out.add(child);
             }
-            if (out.size() >= 100) return;
         }
     }
 
