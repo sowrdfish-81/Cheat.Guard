@@ -131,18 +131,6 @@ public class CentralMonitorPanel extends JPanel {
 
         JButton back = UITheme.ghost("Back");
         back.addActionListener(e -> {
-            // A running monitor must never be abandoned from here: this panel is
-            // recreated on return, so a fresh random code would greet the
-            // invigilator while students are still joined with the old one.
-            if (running) {
-                JOptionPane.showMessageDialog(this,
-                        "The monitor is running - students are joined with the exam code\n"
-                                + "shown here. Press Stop first if you really want to end it;\n"
-                                + "leaving now would abandon the session and the code would\n"
-                                + "change on the next start.",
-                        "Monitor is running", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
             onBack.run();
         });
         JPanel header = new JPanel(new BorderLayout(12, 0));

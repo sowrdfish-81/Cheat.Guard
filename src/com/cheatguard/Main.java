@@ -76,6 +76,7 @@ public class Main {
     private Thread activeWatchdogThread;
     private StrictNetworkLockdown activeNetworkLockdown;
     private com.cheatguard.watchdog.CentralReporter centralReporter;
+    private com.cheatguard.gui.CentralMonitorPanel centralMonitorPanel;
     /** Guards double-clicks while a session is being started or ended. */
     private volatile boolean sessionBusy;
 
@@ -1057,7 +1058,10 @@ public class Main {
 
     /** The invigilator's live screen: alerts from every exam PC on the network. */
     private void openCentral() {
-        replaceCard(CARD_CENTRAL, new com.cheatguard.gui.CentralMonitorPanel(() -> showCard(CARD_HOME)));
+        if (centralMonitorPanel == null) {
+            centralMonitorPanel = new com.cheatguard.gui.CentralMonitorPanel(() -> showCard(CARD_HOME));
+            replaceCard(CARD_CENTRAL, centralMonitorPanel);
+        }
         showCard(CARD_CENTRAL);
     }
 
