@@ -55,7 +55,11 @@ public final class DnsAllowlistServer implements Closeable {
     public static final int DNS_PORT = 53;
 
     private static final int MAX_PACKET = 4096;
-    private static final int UPSTREAM_TIMEOUT_MS = 3000;
+    // DNS is on the critical path for every approved page. A dead campus
+    // resolver must not add several seconds before the next resolver is tried.
+    // The answer cache handles repeat lookups, while the short failover keeps
+    // the allowlist enforcement without turning approved sites into a proxy.
+    private static final int UPSTREAM_TIMEOUT_MS = 1000;
     private static final int MAX_LOGGED_HOSTS = 400;
     /**
      * Settling window right after the lockdown starts: the machine's own cleanup is
@@ -65,7 +69,7 @@ public final class DnsAllowlistServer implements Closeable {
      */
     private static final long STARTUP_GRACE_MS = 60_000L;
     /** Successful approved answers are replayed for this long before re-querying. */
-    private static final long CACHE_TTL_MS = 30_000L;
+    private static final long CACHE_TTL_MS = 120_000L;
     private static final int CACHE_MAX_ENTRIES = 512;
 
     /**

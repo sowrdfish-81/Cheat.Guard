@@ -57,6 +57,7 @@ public class CentralMonitorPanel extends JPanel {
         final List<String[]> events = new ArrayList<>();   // {time, level, event}
         boolean suspicious;
         String verdict = "";                                // CHEAT CONFIRMED / CLEARED / ""
+        boolean sessionEnded;
         long lastActivity;
         long lastRedAt;
 
@@ -66,6 +67,7 @@ public class CentralMonitorPanel extends JPanel {
             if ("CHEAT CONFIRMED".equals(verdict)) return "CHEAT CONFIRMED";
             if (suspicious) return "SUSPICIOUS";
             if ("CLEARED".equals(verdict)) return "CLEARED";
+            if (sessionEnded) return "OFFLINE";
             return "ACTIVE";
         }
     }
@@ -111,6 +113,7 @@ public class CentralMonitorPanel extends JPanel {
     private JButton markClearedBtn;
     private JButton newCodeButton;
     private final JTextField codeField = new JTextField();
+    private final Timer tableRefreshTimer;
 
     public CentralMonitorPanel(Runnable onBack) {
         setLayout(new BorderLayout(14, 14));
@@ -180,6 +183,9 @@ public class CentralMonitorPanel extends JPanel {
                 } else if ("CLEARED".equals(status)) {
                     c.setForeground(UITheme.ACCENT_TEAL);
                     c.setFont(UITheme.FONT_BODY);
+                } else if ("OFFLINE".equals(status)) {
+                    c.setForeground(UITheme.TEXT_MUTED);
+                    c.setFont(UITheme.FONT_BODY);
                 } else {
                     c.setForeground(UITheme.TEXT_WHITE);
                     c.setFont(UITheme.FONT_BODY);
@@ -212,6 +218,12 @@ public class CentralMonitorPanel extends JPanel {
         start.addActionListener(e -> startMonitor());
         JButton stop = UITheme.ghost("Stop");
         stop.addActionListener(e -> stopMonitor());
+        JButton removeChecked = UITheme.ghost("Remove checked");
+        removeChecked.setToolTipText("Remove rows marked CLEARED or CHEAT CONFIRMED");
+        removeChecked.addActionListener(e -> removeStudentRows(false));
+        JButton removeInactive = UITheme.ghost("Remove offline");
+        removeInactive.setToolTipText("Remove all students whose session has ended");
+        removeInactive.addActionListener(e -> removeStudentRows(true));
 
         JPanel controls = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         controls.setOpaque(false);
@@ -220,6 +232,8 @@ public class CentralMonitorPanel extends JPanel {
         controls.add(newCodeButton);
         controls.add(start);
         controls.add(stop);
+        controls.add(removeChecked);
+        controls.add(removeInactive);
         counters.setFont(UITheme.FONT_SECTION);
         JPanel controlsRow = new JPanel(new BorderLayout(10, 0));
         controlsRow.setOpaque(false);
@@ -320,6 +334,14 @@ public class CentralMonitorPanel extends JPanel {
         centerHost.add(listPanel, BorderLayout.CENTER);
 
         add(centerHost, BorderLayout.CENTER);
+
+        // A SESSION_END can arrive on a worker thread while the table is being
+        // viewed. Refresh on the EDT so the row changes to OFFLINE immediately.
+        tableRefreshTimer = new Timer(1000, e -> {
+            if (!showingDetail) rebuildStudentTable();
+        });
+        tableRefreshTimer.setRepeats(true);
+        tableRefreshTimer.start();
     }
 
     // ------------------------------------------------------------- lifecycle --
@@ -443,6 +465,7 @@ public class CentralMonitorPanel extends JPanel {
     }
 
     private void readClient(Socket socket) {
+        ConnectionState connection = null;
         try (socket; InputStream in = socket.getInputStream();
              OutputStream out = socket.getOutputStream()) {
             // Unauthenticated peers must not pin a reader thread forever: the
@@ -458,7 +481,7 @@ public class CentralMonitorPanel extends JPanel {
             // arrive corrupted (garbled rows, or one student split into two).
             BufferedReader reader = new BufferedReader(
                     new InputStreamReader(in, StandardCharsets.UTF_8));
-            ConnectionState connection = new ConnectionState(nonce);
+            connection = new ConnectionState(nonce);
             String line;
             while (running && (line = reader.readLine()) != null) {
                 line = line.trim();
@@ -475,6 +498,9 @@ public class CentralMonitorPanel extends JPanel {
             // the student PC disconnected; its rows stay on screen
         } finally {
             closables.remove(socket);
+            if (connection != null && connection.authenticated && !connection.sessionEnded) {
+                markConnectionOffline(connection.recordKey);
+            }
         }
     }
 
@@ -493,6 +519,7 @@ public class CentralMonitorPanel extends JPanel {
             connection.student = p[2].trim();
             connection.course = p[3].trim();
             connection.helloReceived = true;
+            connection.recordKey = keyOf(connection.pc, connection.student);
             return;
         } else if ("AUTH".equals(p[0]) && p.length >= 2) {
             if (!connection.helloReceived || connection.authenticated
@@ -539,10 +566,12 @@ public class CentralMonitorPanel extends JPanel {
             String type = p[5].trim();
             String message = p.length >= 8 ? p[7].trim() : p[6].trim();
             event = message.startsWith(type + ":") ? message : type + ": " + message;
+            final boolean sessionEnd = "SESSION_END".equalsIgnoreCase(type);
             // Cap retained event text: without a per-event byte budget, an
             // authenticated spamming client could retain ~136 KB x 2000 events
             // per student record and push the invigilator toward OOM.
             if (event.length() > 4096) event = event.substring(0, 4096) + " …";
+            connection.sessionEnded = sessionEnd;
         } else {
             return;
         }
@@ -555,6 +584,7 @@ public class CentralMonitorPanel extends JPanel {
             if (rec.events.size() >= MAX_EVENTS_PER_STUDENT) rec.events.remove(0);
             rec.events.add(new String[]{time, rowSeverity(severity, red), event});
             rec.lastActivity = System.currentTimeMillis();
+            if (connection.sessionEnded) rec.sessionEnded = true;
             if (red) {
                 rec.suspicious = true;
                 rec.lastRedAt = System.currentTimeMillis();
@@ -703,6 +733,23 @@ public class CentralMonitorPanel extends JPanel {
         if ("CHEAT CONFIRMED".equals(rec.verdict)) return 0;
         if (rec.suspicious) return 1;
         return 2;
+    }
+
+    /** Remove only rows that are no longer actionable, never an active row. */
+    private void removeStudentRows(boolean offlineOnly) {
+        List<String> removed = new ArrayList<>();
+        synchronized (students) {
+            students.entrySet().removeIf(entry -> {
+                StudentRecord rec = entry.getValue();
+                boolean remove = offlineOnly ? rec.sessionEnded
+                        : ("CLEARED".equals(rec.verdict) || "CHEAT CONFIRMED".equals(rec.verdict));
+                if (remove) removed.add(entry.getKey());
+                return remove;
+            });
+        }
+        if (selectedKey != null && removed.contains(selectedKey)) showList();
+        rebuildStudentTable();
+        counters.setText("PCs: " + students.size() + "   Alerts: " + alertCount.get());
     }
 
     // ------------------------------------------------------- firewall + csv ----
@@ -994,10 +1041,24 @@ public class CentralMonitorPanel extends JPanel {
         private String pc = "";
         private String student = "";
         private String course = "";
+        private boolean sessionEnded;
+        private String recordKey = "";
 
         private ConnectionState(String nonce) {
             this.nonce = nonce;
         }
+    }
+
+    private void markConnectionOffline(String key) {
+        if (key == null || key.isBlank()) return;
+        synchronized (students) {
+            StudentRecord rec = students.get(key);
+            if (rec != null) rec.sessionEnded = true;
+        }
+        SwingUtilities.invokeLater(() -> {
+            rebuildStudentTable();
+            counters.setText("PCs: " + students.size() + "   Alerts: " + alertCount.get());
+        });
     }
 
     private static void sleepQuiet(long ms) {
