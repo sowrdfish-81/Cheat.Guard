@@ -456,6 +456,32 @@ public class AppConfig {
     public synchronized Set<String> getAllowedProcesses() { return new TreeSet<>(allowedProcesses); }
     public synchronized Set<String> getAllowedSites() { return new TreeSet<>(allowedSites); }
 
+    /** Main entries for the settings UI; helper/updater executables stay hidden. */
+    public synchronized Set<String> getDisplayedProcesses() {
+        Set<String> visible = new TreeSet<>();
+        for (String p : allowedProcesses) {
+            String n = normalizeProcess(p);
+            if (n.equals("update.exe") || n.equals("crashpad_handler.exe")
+                    || n.equals("squirrel.exe") || n.equals("elevate.exe")) continue;
+            visible.add(n);
+        }
+        return visible;
+    }
+
+    /** Show only root domains; subdomains remain in the enforcement set. */
+    public synchronized Set<String> getDisplayedSites() {
+        Set<String> visible = new TreeSet<>(allowedSites);
+        for (String candidate : allowedSites) {
+            for (String parent : allowedSites) {
+                if (!candidate.equals(parent) && candidate.endsWith("." + parent)) {
+                    visible.remove(candidate);
+                    break;
+                }
+            }
+        }
+        return visible;
+    }
+
     public synchronized void addAllowedProcess(String name) {
         String normalized = normalizeProcess(name);
         if (!normalized.isEmpty()) { allowedProcesses.add(normalized); save(); }

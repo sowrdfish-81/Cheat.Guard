@@ -250,7 +250,7 @@ public class SettingsPanel extends JPanel {
 
     private JComponent buildAppCard() {
         processModel = new DefaultListModel<>();
-        refresh(processModel, config.getAllowedProcesses());
+        refresh(processModel, config.getDisplayedProcesses());
         JList<String> list = new JList<>(processModel);
         UITheme.styleList(list);
         // show the app's real name in the allowed list, exe name stays the model value
@@ -325,7 +325,7 @@ public class SettingsPanel extends JPanel {
             // Keep the shortcut's launch arguments (Squirrel-style launchers such as
             // Discord's Update.exe need "--processStart <app>.exe" to open at all).
             config.setProcessArgs(exe.getName(), shortcut[1]);
-            refresh(processModel, config.getAllowedProcesses());
+            refresh(processModel, config.getDisplayedProcesses());
             search.setText("");
             search.requestFocusInWindow();
         });
@@ -338,7 +338,7 @@ public class SettingsPanel extends JPanel {
             if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
                 java.io.File exe = chooser.getSelectedFile();
                 allowExecutableFamily(exe, realAppName(exe), null);
-                refresh(processModel, config.getAllowedProcesses());
+                refresh(processModel, config.getDisplayedProcesses());
             }
         });
         JButton remove = UITheme.ghost("Remove selected");
@@ -346,7 +346,7 @@ public class SettingsPanel extends JPanel {
             String selected = list.getSelectedValue();
             if (selected == null) return;
             config.removeAllowedProcess(selected);
-            refresh(processModel, config.getAllowedProcesses());
+            refresh(processModel, config.getDisplayedProcesses());
         });
 
         return appCard("Allowed applications",
@@ -500,7 +500,7 @@ public class SettingsPanel extends JPanel {
 
     private JComponent buildSiteCard() {
         siteModel = new DefaultListModel<>();
-        refresh(siteModel, config.getAllowedSites());
+        refresh(siteModel, config.getDisplayedSites());
         JList<String> list = new JList<>(siteModel);
         UITheme.styleList(list);
 
@@ -513,7 +513,7 @@ public class SettingsPanel extends JPanel {
             if (value.isEmpty()) return;
             int before = config.getAllowedSites().size();
             config.addAllowedSite(value);
-            refresh(siteModel, config.getAllowedSites());
+            refresh(siteModel, config.getDisplayedSites());
             if (config.getAllowedSites().size() == before) {
                 JOptionPane.showMessageDialog(this,
                         "\"" + value + "\" is not a valid domain. Use a full name such as codeforces.com.",
@@ -527,7 +527,7 @@ public class SettingsPanel extends JPanel {
             String selected = list.getSelectedValue();
             if (selected == null) return;
             config.removeAllowedSite(selected);
-            refresh(siteModel, config.getAllowedSites());
+            refresh(siteModel, config.getDisplayedSites());
         });
 
         return card("Allowed websites",
