@@ -8,8 +8,8 @@ invigilator's screen over **TLS** with an HMAC exam-code proof on top.
 
 ## Current release
 
-Version: **1.9.39**
-Release: [v1.9.39](https://github.com/sowrdfish-81/CheatGuard-Central/releases/tag/v1.9.39)
+Version: **1.9.40**
+Release: [v1.9.40](https://github.com/sowrdfish-81/CheatGuard-Central/releases/tag/v1.9.40)
 
 Release assets (see the release page for the exact SHA-256 of the current
 installer; the in-app updater verifies it before installing):
