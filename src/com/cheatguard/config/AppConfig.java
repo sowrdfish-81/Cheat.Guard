@@ -106,6 +106,11 @@ public class AppConfig {
         // even when an older config already carries the current defaults marker.
         allowedProcesses.remove("notepad.exe");
         allowedProcesses.remove("notepad++.exe");
+        // Discord's Squirrel launcher is required before its versioned payload
+        // can even start. Keep the generic launcher trusted regardless of whether
+        // Discord happens to be installed at first launch; discovery below adds
+        // the concrete versioned executables when they appear.
+        boolean forcedDiscordLauncher = allowedProcesses.add("update.exe");
         // Launch paths are stored as "name.exe|C:\path\name.exe" entries.
         for (String entry : props.getProperty("allowed.process.paths", "").split("\\|\\|")) {
             int bar = entry.indexOf('|');
@@ -143,7 +148,7 @@ public class AppConfig {
         // One-time merge of a new default set into an existing configuration; after
         // this the marker is current, so entries an admin removed stay removed.
         // Version 3 also REMOVES the account/login sites from the defaults.
-        boolean merged = false;
+        boolean merged = forcedDiscordLauncher;
         if (!DEFAULTS_VERSION.equals(props.getProperty("allowlist.defaults.version", "1"))) {
             for (String p : DEFAULT_PROCESSES) {
                 if (allowedProcesses.add(normalizeProcess(p))) merged = true;
