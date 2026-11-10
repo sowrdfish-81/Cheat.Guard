@@ -709,7 +709,10 @@ public class CentralMonitorPanel extends JPanel {
     // ------------------------------------------------------- firewall + csv ----
 
     private void openFirewall() {
-        if (!runElevated("netsh.exe", "advfirewall", "firewall", "add", "rule",
+        if (!runDirect("netsh.exe", "advfirewall", "firewall", "add", "rule",
+                "name=" + FIREWALL_RULE_NAME, "dir=in", "action=allow",
+                "protocol=TCP", "localport=" + CENTRAL_TCP_PORT)
+                && !runElevated("netsh.exe", "advfirewall", "firewall", "add", "rule",
                 "name=" + FIREWALL_RULE_NAME, "dir=in", "action=allow",
                 "protocol=TCP", "localport=" + CENTRAL_TCP_PORT)) {
             throw new IllegalStateException("Windows Firewall permission was not granted. Approve the administrator prompt.");
@@ -737,11 +740,25 @@ public class CentralMonitorPanel extends JPanel {
             args.append(")");
             String ps = "$p=Start-Process -FilePath '" + command[0]
                     + "' -ArgumentList " + args
-                    + " -Verb RunAs -WindowStyle Hidden -PassThru -Wait; exit $p.ExitCode";
+                    + " -Verb RunAs -WindowStyle Normal -PassThru -Wait; exit $p.ExitCode";
             Process p = new ProcessBuilder("powershell.exe", "-NoProfile", "-Command", ps)
                     .redirectErrorStream(true).start();
             p.getInputStream().readAllBytes();
-            if (!p.waitFor(20, java.util.concurrent.TimeUnit.SECONDS)) {
+            if (!p.waitFor(120, java.util.concurrent.TimeUnit.SECONDS)) {
+                p.destroyForcibly();
+                return false;
+            }
+            return p.exitValue() == 0;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static boolean runDirect(String... command) {
+        try {
+            Process p = new ProcessBuilder(command).redirectErrorStream(true).start();
+            p.getInputStream().readAllBytes();
+            if (!p.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)) {
                 p.destroyForcibly();
                 return false;
             }
