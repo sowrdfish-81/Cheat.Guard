@@ -136,7 +136,16 @@ public class SecurityVault {
                 Files.write(plainStaged.toPath(), plain);
                 encryptor.encryptFile(plainStaged, staged, newPassword);
                 File sig = new File(vault.getAbsolutePath() + ".sig");
-                if (!vault.delete() || !staged.renameTo(vault))
+                // Sealed pairs are intentionally not deletable by the desktop
+                // account. Re-keying is an administrator operation, so use the
+                // same single elevated delete path as the dashboard instead of
+                // failing with Windows "Access is denied".
+                if (vault.exists() || sig.exists()) {
+                    if (!LogProtection.deleteElevated(java.util.List.of(vault, sig))) {
+                        throw new IllegalStateException("Windows did not grant permission to replace " + vault.getName());
+                    }
+                }
+                if (!staged.renameTo(vault))
                     throw new IllegalStateException("Could not replace vault " + vault.getName());
                 try (FileWriter fw = new FileWriter(sig)) { fw.write("gcm-v2"); }
                 hideFile(vault); hideFile(sig); converted++;
