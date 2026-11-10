@@ -715,7 +715,7 @@ public class CentralMonitorPanel extends JPanel {
         // that the protected monitor firewall setup is actually running. A
         // silently reused rule made failed starts indistinguishable from a
         // successful one during troubleshooting.
-        if (ruleExists() || runElevated("netsh.exe", "advfirewall", "firewall", "add", "rule",
+        if (!ruleExists() && !runElevated("netsh.exe", "advfirewall", "firewall", "add", "rule",
                 "name=" + FIREWALL_RULE_NAME, "dir=in", "action=allow",
                 "protocol=TCP", "localport=" + CENTRAL_TCP_PORT)) {
             throw new IllegalStateException("Windows Firewall permission was not granted. Approve the administrator prompt.");
