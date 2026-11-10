@@ -264,6 +264,9 @@ public final class CentralReporter {
                                 try (java.net.Socket probe = new java.net.Socket()) {
                                     probe.connect(new java.net.InetSocketAddress(candidate, CENTRAL_TCP_PORT), 180);
                                     if (centralHost.isEmpty()) {
+                                        String fingerprint = com.cheatguard.watchdog.CentralTls
+                                                .pairMonitorOverTcp(candidate, CENTRAL_TCP_PORT);
+                                        beaconFingerprints.put(candidate, fingerprint);
                                         centralHost = candidate;
                                         persistCentralIp(candidate);
                                         emitStatus("CENTRAL_MONITOR_DISCOVERED",

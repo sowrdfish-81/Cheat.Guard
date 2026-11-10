@@ -637,6 +637,15 @@ public final class CentralTls {
         }
     }
 
+    /** Pair a monitor discovered by the authenticated LAN TCP fallback. */
+    public static String pairMonitorOverTcp(String host, int port) throws IOException {
+        X509Certificate certificate = captureCertificate(host, port);
+        String fingerprint = sha256Hex(certificate);
+        if (fingerprint.isEmpty()) throw new IOException("The monitor certificate fingerprint is empty");
+        upsertPinnedCertificate(configuredTruststoreFile(), certificate);
+        return fingerprint;
+    }
+
     /** Lowercase SHA-256 hex of a certificate's DER encoding; "" when unavailable. */
     public static String sha256Hex(X509Certificate certificate) {
         try {
