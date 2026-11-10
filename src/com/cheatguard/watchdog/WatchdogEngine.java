@@ -54,6 +54,7 @@ public class WatchdogEngine implements Runnable {
      * a complete bypass of the website allowlist.
      */
     private static final Set<String> FORCED_CLOSE = new HashSet<>(Arrays.asList(
+            "notepad.exe", "notepad++.exe",
             "openvpn.exe", "openvpn-gui.exe", "wireguard.exe", "tailscale.exe", "tailscaled.exe",
             "cloudflared.exe", "zerotier-one.exe", "hamachi-2.exe", "hamachi-2-ui.exe",
             "nordvpn.exe", "expressvpn.exe", "protonvpn.exe", "mullvad.exe", "mullvadvpn.exe",
@@ -501,7 +502,7 @@ public class WatchdogEngine implements Runnable {
                 // Opened during the exam. Closing it is the enforcement, so only a
                 // failure to close leaves the student with a usable tool - that is RED.
                 emit(closed
-                        ? new Violation("UNAUTHORIZED_APP_CLOSED", app, Violation.Severity.INFO)
+                        ? new Violation("UNAUTHORIZED_APP_CLOSED", app, Violation.Severity.NOTICE)
                         : new Violation("UNAUTHORIZED_APP_CLOSE_FAILED", app, Violation.Severity.CRITICAL));
             } else {
                 // Already open before the exam started: tidy-up, not misconduct.

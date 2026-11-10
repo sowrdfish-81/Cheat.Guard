@@ -100,6 +100,10 @@ public class AppConfig {
             String normalized = normalizeSite(s);
             if (!normalized.isEmpty()) allowedSites.add(normalized);
         }
+        // These are never valid built-in exam tools. Remove them on every load,
+        // even when an older config already carries the current defaults marker.
+        allowedProcesses.remove("notepad.exe");
+        allowedProcesses.remove("notepad++.exe");
         // Launch paths are stored as "name.exe|C:\path\name.exe" entries.
         for (String entry : props.getProperty("allowed.process.paths", "").split("\\|\\|")) {
             int bar = entry.indexOf('|');
