@@ -590,6 +590,13 @@ function Add-DiscordEgressAllowRules {
                 -DisplayName ('Cheat.Guard - approved Discord ' + $exe.Name) -Group $groupName `
                 -Direction Outbound -Program $exe.FullName -Action Allow -Profile Any `
                 -ErrorAction SilentlyContinue | Out-Null
+            # Keep Discord voice/media explicitly permitted even when the
+            # egress default is Block; voice uses dynamic UDP destinations.
+            New-NetFirewallRule -PolicyStore PersistentStore `
+                -DisplayName ('Cheat.Guard - approved Discord UDP ' + $exe.Name) -Group $groupName `
+                -Direction Outbound -Protocol UDP -Program $exe.FullName `
+                -RemotePort Any -Action Allow -Profile Any `
+                -ErrorAction SilentlyContinue | Out-Null
         }
     }
 }
@@ -1106,6 +1113,16 @@ try {
     # the central IP appears in central-ip.txt once a beacon arrives, and the
     # watcher loop below refreshes the rule for late beacons.
     $centralPort = [int]$cfg.centralPort
+
+    # Discovery can succeed after the network folder has become protected, so
+    # central-ip.txt may not be writable/refreshable in time. The monitor is
+    # still authenticated with TLS and the exam-code challenge; allowing only
+    # the local subnet and monitor port keeps this fallback narrowly scoped.
+    Remove-NetFirewallRule -PolicyStore PersistentStore -DisplayName 'Cheat.Guard - central monitor local subnet' `
+        -ErrorAction SilentlyContinue | Out-Null
+    New-NetFirewallRule -PolicyStore PersistentStore -DisplayName 'Cheat.Guard - central monitor local subnet' -Group $groupName `
+        -Direction Outbound -Protocol TCP -RemoteAddress LocalSubnet -RemotePort $centralPort `
+        -Action Allow -Profile Any -ErrorAction SilentlyContinue | Out-Null
 
     function Set-CentralRule {
         if ([string]::IsNullOrWhiteSpace($cfg.centralIpFile)) { return }
