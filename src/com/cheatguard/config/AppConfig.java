@@ -37,7 +37,9 @@ public class AppConfig {
     /** Fresh installs start with NO websites allowed: the invigilator adds the
      *  exam sites one by one. Apps for coding tests and labs DO ship allowed. */
     private static final String[] DEFAULT_SITES = {
-            "discord.com", "discordapp.com", "discord.gg", "discord.media"
+            "discord.com", "discordapp.com", "discord.gg", "discord.media",
+            "discordapp.net", "discordstatus.com", "discord.co", "discord.new",
+            "discord.gift", "discord.store", "discordmerch.com"
     };
 
     /** Login/mail sites removed from the defaults in version 3. */
@@ -55,7 +57,7 @@ public class AppConfig {
     private static final Set<String> REMOVED_IN_V5 = Set.of("notepad.exe", "notepad++.exe");
 
     /** Bump when the default lists change; missing defaults are merged in once per version. */
-    private static final String DEFAULTS_VERSION = "5";
+    private static final String DEFAULTS_VERSION = "6";
 
     private static AppConfig instance;
     private final File configFile = AppPaths.getWhitelistFile();

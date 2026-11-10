@@ -101,6 +101,11 @@ public final class CentralReporter {
         // The beacon carries the monitor's certificate fingerprint for automatic
         // pairing, so it is listened for even when the IP was typed manually.
         startDiscovery();
+        // Some Wi-Fi APs drop all broadcast traffic even between clients on the
+        // same subnet.  TCP probing is a bounded fallback for that case: it only
+        // checks private /24 LAN ranges and only accepts a host with the monitor
+        // listener open; TLS and exam-code authentication still happen below.
+        startTcpDiscovery();
         // announce the session itself
         report(new Violation("SESSION_START",
                 "Course=" + session.getCourseCode() + " | StudentID=" + session.getStudentId()
@@ -228,6 +233,57 @@ public final class CentralReporter {
                 discoverySocket = null;
             }
         }, "CheatGuard-CentralDiscovery");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    private void startTcpDiscovery() {
+        Thread t = new Thread(() -> {
+            try {
+                java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors
+                        .newFixedThreadPool(24);
+                java.util.List<java.util.concurrent.Future<?>> jobs = new java.util.ArrayList<>();
+                java.util.Enumeration<java.net.NetworkInterface> interfaces =
+                        java.net.NetworkInterface.getNetworkInterfaces();
+                while (interfaces.hasMoreElements()) {
+                    java.net.NetworkInterface ni = interfaces.nextElement();
+                    if (!ni.isUp() || ni.isLoopback()) continue;
+                    java.util.Enumeration<java.net.InetAddress> addresses = ni.getInetAddresses();
+                    while (addresses.hasMoreElements()) {
+                        java.net.InetAddress a = addresses.nextElement();
+                        if (!(a instanceof java.net.Inet4Address) || !a.isSiteLocalAddress()) continue;
+                        String ip = a.getHostAddress();
+                        int dot = ip.lastIndexOf('.');
+                        if (dot <= 0) continue;
+                        String prefix = ip.substring(0, dot) + ".";
+                        for (int host = 1; host <= 254; host++) {
+                            final String candidate = prefix + host;
+                            if (candidate.equals(ip)) continue;
+                            jobs.add(pool.submit(() -> {
+                                if (!running || !centralHost.isEmpty()) return;
+                                try (java.net.Socket probe = new java.net.Socket()) {
+                                    probe.connect(new java.net.InetSocketAddress(candidate, CENTRAL_TCP_PORT), 180);
+                                    if (centralHost.isEmpty()) {
+                                        centralHost = candidate;
+                                        persistCentralIp(candidate);
+                                        emitStatus("CENTRAL_MONITOR_DISCOVERED",
+                                                "Invigilator monitor found at " + candidate + " (LAN probe); connecting...");
+                                    }
+                                } catch (Exception ignored) {}
+                            }));
+                        }
+                    }
+                }
+                for (java.util.concurrent.Future<?> job : jobs) {
+                    if (!running || !centralHost.isEmpty()) break;
+                    try { job.get(500, java.util.concurrent.TimeUnit.MILLISECONDS); }
+                    catch (Exception ignored) {}
+                }
+                pool.shutdownNow();
+            } catch (Exception ignored) {
+                // UDP discovery and manual IP remain available if probing fails.
+            }
+        }, "CheatGuard-CentralTcpDiscovery");
         t.setDaemon(true);
         t.start();
     }
