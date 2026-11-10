@@ -46,8 +46,7 @@ if not defined WIX_FOUND (
     )
   )
 )
-if not defined WIX_FOUND (
-  echo ERROR: WiX Toolset 3.x not found. jpackage needs candle.exe/light.exe to build an .exe installer.
+if defined WIX_FOUND if not exist "%~dp0tools\wix\darice.cub" if exist "%~dp0tools\wix\bin\darice.cub" copy /y "%~dp0tools\wix\bin\darice.cub" "%~dp0tools\wix\darice.cub" >nul\r\nif not defined WIX_FOUND (\r\n  echo ERROR: WiX Toolset 3.x not found. jpackage needs candle.exe/light.exe to build an .exe installer.
   exit /b 1
 )
 echo.
@@ -128,3 +127,4 @@ if exist "%SETUP_EXE%" (
   exit /b 1
 )
 endlocal
+
