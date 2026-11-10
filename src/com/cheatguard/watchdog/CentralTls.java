@@ -243,6 +243,11 @@ public final class CentralTls {
 
     /** Opens the configured monitor listener, or the explicit development transport. */
     public static ServerSocket openServerSocket(int port) throws IOException {
+        // Student PCs use IPv4 LAN addresses. Some Windows/JDK combinations
+        // otherwise create a dual-stack IPv6-only listener (::47821), which
+        // makes the monitor appear healthy locally but unreachable from
+        // 192.168.x.x clients.
+        System.setProperty("java.net.preferIPv4Stack", "true");
         if (plaintextDevModeEnabled()) {
             ServerSocket socket = new ServerSocket();
             socket.setReuseAddress(true);

@@ -104,6 +104,7 @@ jpackage ^
   --win-dir-chooser ^
   --win-upgrade-uuid 4d7c1e9a-6b32-4f85-9e01-8a55c3d2b7f4 ^
   --java-options "-Dfile.encoding=UTF-8" ^
+  --java-options "-Djava.net.preferIPv4Stack=true" ^
   --add-modules java.base,java.desktop,java.management,java.logging,java.xml,jdk.crypto.ec ^
   --jlink-options "--strip-native-commands --no-header-files --no-man-pages --compress 2" ^
   --temp build\jpackage ^
