@@ -58,7 +58,30 @@ public class SecurityVault {
         if (vaultFile.getCanonicalFile().equals(plaintextLogFile.getCanonicalFile())) {
             throw new IllegalStateException("Refusing to seal: vault path equals the plaintext log path.");
         }
-        encryptor.encryptFile(plaintextLogFile, vaultFile, adminPassword);
+        // Windows Defender/indexing can briefly hold either file immediately
+        // after the final audit row is written.  A single failed encryption
+        // used to make every normal End Session look like a permanent seal
+        // failure.  Retry only this filesystem stage; password/authentication
+        // errors still propagate normally.
+        Exception last = null;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                encryptor.encryptFile(plaintextLogFile, vaultFile, adminPassword);
+                last = null;
+                break;
+            } catch (java.io.IOException e) {
+                last = e;
+                try { Files.deleteIfExists(vaultFile.toPath()); } catch (Exception ignored) {}
+                if (attempt < 2) {
+                    try { Thread.sleep(120L * (attempt + 1)); }
+                    catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        throw interrupted;
+                    }
+                }
+            }
+        }
+        if (last != null) throw last;
         String signature = AesEncryptor.isAuthenticatedFormat(vaultFile)
                 ? "gcm-v2"
                 : signer.generateSignature(vaultFile);
