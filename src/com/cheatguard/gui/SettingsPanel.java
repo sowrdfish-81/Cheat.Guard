@@ -321,13 +321,19 @@ public class SettingsPanel extends JPanel {
                 return;
             }
             java.io.File exe = new java.io.File(target);
-            allowExecutableFamily(exe, app.displayName(), shortcut[1]);
-            // Keep the shortcut's launch arguments (Squirrel-style launchers such as
-            // Discord's Update.exe need "--processStart <app>.exe" to open at all).
-            config.setProcessArgs(exe.getName(), shortcut[1]);
-            refresh(processModel, config.getDisplayedProcesses());
-            search.setText("");
-            search.requestFocusInWindow();
+            add.setEnabled(false);
+            new Thread(() -> {
+                allowExecutableFamily(exe, app.displayName(), shortcut[1]);
+                // Keep the shortcut's launch arguments (Squirrel-style launchers such as
+                // Discord's Update.exe need "--processStart <app>.exe" to open at all).
+                config.setProcessArgs(exe.getName(), shortcut[1]);
+                javax.swing.SwingUtilities.invokeLater(() -> {
+                    add.setEnabled(true);
+                    refresh(processModel, config.getDisplayedProcesses());
+                    search.setText("");
+                    search.requestFocusInWindow();
+                });
+            }, "CheatGuard-AddInstalledApp").start();
         });
 
         JButton browse = UITheme.ghost("Choose .exe");
@@ -337,8 +343,15 @@ public class SettingsPanel extends JPanel {
             chooser.setFileFilter(new FileNameExtensionFilter("Windows applications (*.exe)", "exe"));
             if (chooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
                 java.io.File exe = chooser.getSelectedFile();
-                allowExecutableFamily(exe, realAppName(exe), null);
-                refresh(processModel, config.getDisplayedProcesses());
+                browse.setEnabled(false);
+                new Thread(() -> {
+                    String name = realAppName(exe);
+                    allowExecutableFamily(exe, name, null);
+                    javax.swing.SwingUtilities.invokeLater(() -> {
+                        refresh(processModel, config.getDisplayedProcesses());
+                        browse.setEnabled(true);
+                    });
+                }, "CheatGuard-AddExecutable").start();
             }
         });
         JButton remove = UITheme.ghost("Remove selected");
@@ -389,10 +402,11 @@ public class SettingsPanel extends JPanel {
 
     private void collectFamilyExecutables(java.io.File dir,
                                           java.util.List<java.io.File> out) {
-        if (dir == null) return;
+        if (dir == null || out.size() >= 256) return;
         java.io.File[] children = dir.listFiles();
         if (children == null) return;
         for (java.io.File child : children) {
+            if (out.size() >= 256) return;
             if (child.isDirectory()) {
                 collectFamilyExecutables(child, out);
             } else if (child.isFile() && child.getName().toLowerCase(java.util.Locale.ROOT).endsWith(".exe")) {

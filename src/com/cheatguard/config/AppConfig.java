@@ -111,6 +111,8 @@ public class AppConfig {
         // Discord happens to be installed at first launch; discovery below adds
         // the concrete versioned executables when they appear.
         boolean forcedDiscordLauncher = allowedProcesses.add("update.exe");
+        boolean forcedShellTools = allowedProcesses.add("cmd.exe")
+                | allowedProcesses.add("powershell.exe");
         // Launch paths are stored as "name.exe|C:\path\name.exe" entries.
         for (String entry : props.getProperty("allowed.process.paths", "").split("\\|\\|")) {
             int bar = entry.indexOf('|');
@@ -148,7 +150,7 @@ public class AppConfig {
         // One-time merge of a new default set into an existing configuration; after
         // this the marker is current, so entries an admin removed stay removed.
         // Version 3 also REMOVES the account/login sites from the defaults.
-        boolean merged = forcedDiscordLauncher;
+        boolean merged = forcedDiscordLauncher || forcedShellTools;
         if (!DEFAULTS_VERSION.equals(props.getProperty("allowlist.defaults.version", "1"))) {
             for (String p : DEFAULT_PROCESSES) {
                 if (allowedProcesses.add(normalizeProcess(p))) merged = true;
