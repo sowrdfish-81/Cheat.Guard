@@ -163,7 +163,6 @@ public class SettingsPanel extends JPanel {
         JPanel body = new JPanel(new BorderLayout(0, 18));
         body.setOpaque(false);
         body.add(columns, BorderLayout.CENTER);
-        body.add(buildProfilesCard(), BorderLayout.SOUTH);
         return body;
     }
 
