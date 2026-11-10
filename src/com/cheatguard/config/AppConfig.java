@@ -30,11 +30,15 @@ public class AppConfig {
             "node.exe", "git.exe", "bash.exe",
             "cmd.exe", "powershell.exe", "wt.exe", "windowsterminal.exe",
             "conhost.exe", "openconsole.exe",
+            // Discord launchers and child processes (paths are discovered below)
+            "discord.exe", "discordptb.exe", "discordcanary.exe",
     };
 
     /** Fresh installs start with NO websites allowed: the invigilator adds the
      *  exam sites one by one. Apps for coding tests and labs DO ship allowed. */
-    private static final String[] DEFAULT_SITES = {};
+    private static final String[] DEFAULT_SITES = {
+            "discord.com", "discordapp.com", "discord.gg", "discord.media"
+    };
 
     /** Login/mail sites removed from the defaults in version 3. */
     private static final Set<String> REMOVED_IN_V3 = Set.of("accounts.google.com", "gmail.com");
@@ -48,7 +52,7 @@ public class AppConfig {
             "ssl.gstatic.com", "google.com", "accounts.google.com", "gmail.com");
 
     /** Bump when the default lists change; missing defaults are merged in once per version. */
-    private static final String DEFAULTS_VERSION = "4";
+    private static final String DEFAULTS_VERSION = "5";
 
     private static AppConfig instance;
     private final File configFile = AppPaths.getWhitelistFile();
@@ -146,7 +150,43 @@ public class AppConfig {
                 if (allowedSites.remove(normalizeSite(gone))) merged = true;
             }
         }
+        // Discord is a multi-process Squirrel application. Discover every
+        // executable under its own install roots so Update.exe and versioned
+        // child processes work without granting all of AppData.
+        if (discoverDiscordExecutables()) merged = true;
         if (!configFile.exists() || merged) save();
+    }
+
+    private boolean discoverDiscordExecutables() {
+        String localPath = System.getenv("LOCALAPPDATA");
+        File local = localPath == null || localPath.isBlank()
+                ? new File(System.getProperty("user.home"), "AppData\\Local")
+                : new File(localPath);
+        boolean changed = false;
+        for (String rootName : new String[]{"Discord", "DiscordPTB", "DiscordCanary"}) {
+            File root = new File(local, rootName);
+            if (!root.isDirectory()) continue;
+            List<File> found = new ArrayList<>();
+            collectExecutables(root, found);
+            for (File exe : found) {
+                String name = normalizeProcess(exe.getName());
+                if (!name.isEmpty()) {
+                    if (allowedProcesses.add(name)) changed = true;
+                    String old = processPaths.put(name, exe.getAbsolutePath());
+                    if (!exe.getAbsolutePath().equals(old)) changed = true;
+                }
+            }
+        }
+        return changed;
+    }
+
+    private void collectExecutables(File dir, List<File> out) {
+        File[] children = dir.listFiles();
+        if (children == null) return;
+        for (File child : children) {
+            if (child.isDirectory()) collectExecutables(child, out);
+            else if (child.isFile() && child.getName().toLowerCase(Locale.ROOT).endsWith(".exe")) out.add(child);
+        }
     }
 
     public synchronized void save() {
