@@ -48,6 +48,29 @@ public class LogManager {
     }
 
     public synchronized List<Violation> getAllViolations() { return new ArrayList<>(violations); }
+
+    /**
+     * Recreate the plaintext log from the in-memory audit list when a cleanup
+     * tool, antivirus, or an interrupted recovery removed the path during the
+     * session.  Sealing must never fail merely because the append file vanished;
+     * the authoritative rows are already retained in this process.
+     */
+    public synchronized boolean ensureFilePresent() {
+        if (logFile.isFile()) return true;
+        try {
+            File parent = logFile.getParentFile();
+            if (parent != null) parent.mkdirs();
+            StringBuilder content = new StringBuilder();
+            for (Violation v : violations) content.append(v).append(System.lineSeparator());
+            Files.write(logFile.toPath(), content.toString().getBytes(StandardCharsets.UTF_8),
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING,
+                    StandardOpenOption.WRITE);
+            return logFile.isFile();
+        } catch (IOException e) {
+            AppLog.warn("Could not rebuild missing log file: " + e.getMessage());
+            return false;
+        }
+    }
     public File getLogFile() { return logFile; }
     public synchronized long getRedFlagCount() {
         long count = 0;

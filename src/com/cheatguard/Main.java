@@ -879,6 +879,11 @@ public class Main {
                 activeSession.endSession();
                 activeSessionEnded = true;
             }
+            // The audit rows also live in memory. Recreate the append file if a
+            // transient cleanup/AV action removed it while the exam was active.
+            if (!activeSession.getLogManager().ensureFilePresent()) {
+                throw new IllegalStateException("The session log could not be recreated.");
+            }
             activeSecurityVault.sealVault(sessionFile, password);
 
             // Harden the sealed files while the elevated helper is still running, so no
