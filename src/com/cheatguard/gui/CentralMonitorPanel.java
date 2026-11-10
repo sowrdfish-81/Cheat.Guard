@@ -344,6 +344,8 @@ public class CentralMonitorPanel extends JPanel {
         examCode = code;
         boolean certificateRotated = false;
         try {
+            statusLabel.setText("Requesting administrator approval for the monitor firewall...");
+            statusLabel.setForeground(UITheme.WARN);
             openFirewall();
             ensureFirewallShutdownHook();
             // Refresh the certificate when the network changed since it was
@@ -709,10 +711,11 @@ public class CentralMonitorPanel extends JPanel {
     // ------------------------------------------------------- firewall + csv ----
 
     private void openFirewall() {
-        if (!runDirect("netsh.exe", "advfirewall", "firewall", "add", "rule",
-                "name=" + FIREWALL_RULE_NAME, "dir=in", "action=allow",
-                "protocol=TCP", "localport=" + CENTRAL_TCP_PORT)
-                && !runElevated("netsh.exe", "advfirewall", "firewall", "add", "rule",
+        // Always request an explicit UAC approval so the invigilator can see
+        // that the protected monitor firewall setup is actually running. A
+        // silently reused rule made failed starts indistinguishable from a
+        // successful one during troubleshooting.
+        if (!runElevated("netsh.exe", "advfirewall", "firewall", "add", "rule",
                 "name=" + FIREWALL_RULE_NAME, "dir=in", "action=allow",
                 "protocol=TCP", "localport=" + CENTRAL_TCP_PORT)) {
             throw new IllegalStateException("Windows Firewall permission was not granted. Approve the administrator prompt.");
@@ -754,19 +757,6 @@ public class CentralMonitorPanel extends JPanel {
         }
     }
 
-    private static boolean runDirect(String... command) {
-        try {
-            Process p = new ProcessBuilder(command).redirectErrorStream(true).start();
-            p.getInputStream().readAllBytes();
-            if (!p.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)) {
-                p.destroyForcibly();
-                return false;
-            }
-            return p.exitValue() == 0;
-        } catch (Exception ignored) {
-            return false;
-        }
-    }
 
     private static void runQuiet(String... command) {
         try {
