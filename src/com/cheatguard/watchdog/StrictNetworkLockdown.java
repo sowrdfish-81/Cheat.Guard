@@ -623,7 +623,10 @@ public final class StrictNetworkLockdown implements Closeable {
                 }
             }
         }
-        return out;
+        // A redirected Desktop/OneDrive tree can contribute the same path through
+        // multiple roots. Deduplicate before handing paths to icacls; each ACL call
+        // is expensive and duplicate calls were the main source of slow startup/end.
+        return new ArrayList<>(new LinkedHashSet<>(out));
     }
 
     /** Deny a folder's children, but leave the chain to the exam folder open. */

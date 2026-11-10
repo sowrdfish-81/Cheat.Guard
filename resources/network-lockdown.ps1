@@ -435,7 +435,7 @@ function Set-FileAccessLocks([string]$ListFile, [string]$Sid) {
         # inheritable ACE can take minutes to propagate, and some cloud
         # filesystems reject the deny outright (exit 87). Either way the arm
         # sequence must survive: skip the path and keep going.
-        $code = Invoke-AclTool icacls ('"' + $p + '" /deny "*' + $Sid + ':(OI)(CI)(RX,D)"') 120
+        $code = Invoke-AclTool icacls ('"' + $p + '" /deny "*' + $Sid + ':(OI)(CI)(RX,D)"') 30
         if ($code -eq 0) {
             $locked.Add($p)
         } else {
@@ -462,8 +462,8 @@ function Test-DenyPresent([string]$Path, [string]$Sid) {
 function Remove-DenyForSid([string]$Path, [string]$Sid) {
     if ([string]::IsNullOrWhiteSpace($Path) -or [string]::IsNullOrWhiteSpace($Sid)) { return }
     if (-not (Test-Path -LiteralPath $Path)) { return }
-    for ($attempt = 0; $attempt -lt 3; $attempt++) {
-        try { Invoke-AclTool icacls ('"' + $Path + '" /remove:d "*' + $Sid + '"') 120 | Out-Null } catch {}
+    for ($attempt = 0; $attempt -lt 2; $attempt++) {
+        try { Invoke-AclTool icacls ('"' + $Path + '" /remove:d "*' + $Sid + '"') 30 | Out-Null } catch {}
         if (-not (Test-DenyPresent $Path $Sid)) { return }
         Start-Sleep -Milliseconds 300
     }
