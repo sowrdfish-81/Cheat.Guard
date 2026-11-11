@@ -50,7 +50,7 @@ import java.util.concurrent.TimeUnit;
 public class Main {
 
     /** Visible in the window title, so "which build am I running" is never a guess. */
-    private static final String BUILD_STAMP = "v1.9.65 (pairing hardening)";
+    private static final String BUILD_STAMP = "v1.9.66 (centered home subtitle)";
 
     private static final InstanceGuard INSTANCE_GUARD = new InstanceGuard();
     private static final String CARD_FIRST_RUN = "FIRST_RUN";
@@ -366,7 +366,10 @@ public class Main {
 
         card.add(brandMark(360));
         card.add(Box.createVerticalStrut(14));
-        card.add(UITheme.muted("Secure exam monitoring for Windows"));
+        JLabel homeSubtitle = UITheme.muted("Secure exam monitoring for Windows");
+        homeSubtitle.setHorizontalAlignment(SwingConstants.CENTER);
+        homeSubtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
+        card.add(homeSubtitle);
         card.add(Box.createVerticalStrut(30));
         card.add(startBtn);
         card.add(Box.createVerticalStrut(11));
