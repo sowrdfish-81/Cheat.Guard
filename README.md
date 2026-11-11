@@ -143,7 +143,7 @@ installed `diagnostics.bat` utility.
 
 ## Security boundaries
 
-CheatGuard is designed to enforce policy against a signed-in standard student
+Cheat.Guard is designed to enforce policy against a signed-in standard student
 account. It cannot protect against a person who has the local administrator
 password, physical access to another device, or a communication path that
 cannot be distinguished from an approved endpoint. The security model, its
