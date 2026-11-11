@@ -417,6 +417,10 @@ public final class UITheme {
         JPanel p = new JPanel(new FlowLayout(FlowLayout.LEFT, gap, 0));
         p.setOpaque(false);
         for (Component c : children) p.add(c);
+        // A row is used inside vertical BoxLayouts. Swing otherwise lets the
+        // transparent wrapper absorb all spare height, creating large gaps
+        // between headings, hints and fields on card-based screens.
+        p.setMaximumSize(new Dimension(Integer.MAX_VALUE, p.getPreferredSize().height));
         return p;
     }
 
