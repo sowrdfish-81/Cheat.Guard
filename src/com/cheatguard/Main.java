@@ -50,7 +50,7 @@ import java.util.concurrent.TimeUnit;
 public class Main {
 
     /** Visible in the window title, so "which build am I running" is never a guess. */
-    private static final String BUILD_STAMP = "v1.9.57 (UI polish)";
+    private static final String BUILD_STAMP = "v1.9.58 (UI polish)";
 
     private static final InstanceGuard INSTANCE_GUARD = new InstanceGuard();
     private static final String CARD_FIRST_RUN = "FIRST_RUN";
@@ -1094,9 +1094,14 @@ public class Main {
         pf.setMaximumSize(new Dimension(340, 42));
         JPanel content = UITheme.column(8, leftAlign(UITheme.muted("Administrator password")), pf);
         content.setBorder(UITheme.padding(8, 12, 8, 12));
-        int result = JOptionPane.showConfirmDialog(frame, content, title,
-                JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-        return result == JOptionPane.OK_OPTION ? pf.getPassword() : null;
+        JOptionPane pane = new JOptionPane(content, JOptionPane.PLAIN_MESSAGE,
+                JOptionPane.OK_CANCEL_OPTION);
+        JDialog dialog = pane.createDialog(frame, title);
+        dialog.setResizable(false);
+        dialog.setLocationRelativeTo(frame);
+        dialog.setVisible(true);
+        Object value = pane.getValue();
+        return Integer.valueOf(JOptionPane.OK_OPTION).equals(value) ? pf.getPassword() : null;
     }
 
     /** Verify a password and explain a refusal, including throttling. */

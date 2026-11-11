@@ -169,7 +169,7 @@ public class SettingsPanel extends JPanel {
     /** Save the current sites + apps under a name; load or delete saved profiles. */
     private JComponent buildProfilesCard() {
         JPanel card = UITheme.card();
-        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setLayout(new BorderLayout(0, 12));
 
         JLabel heading = UITheme.section("Exam profiles");
         JLabel hint = UITheme.muted("<html><body style='width:760px'>Save the current websites and apps as a named profile "
@@ -521,15 +521,18 @@ public class SettingsPanel extends JPanel {
         actions.add(clear);
         actions.add(remove);
 
-        card.add(leftAlign(UITheme.row(0, UITheme.section(heading))));
-        card.add(Box.createVerticalStrut(6));
-        card.add(leftAlign(UITheme.row(0, hint(hintText))));
-        card.add(Box.createVerticalStrut(14));
-        card.add(leftAlign(search));
-        card.add(Box.createVerticalStrut(8));
-        card.add(leftAlign(actions));
-        card.add(Box.createVerticalStrut(12));
-        card.add(leftAlign(scroll));
+        JPanel top = new JPanel();
+        top.setOpaque(false);
+        top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
+        top.add(leftAlign(UITheme.row(0, UITheme.section(heading))));
+        top.add(Box.createVerticalStrut(6));
+        top.add(leftAlign(UITheme.row(0, hint(hintText))));
+        top.add(Box.createVerticalStrut(14));
+        top.add(leftAlign(search));
+        top.add(Box.createVerticalStrut(8));
+        top.add(leftAlign(actions));
+        card.add(top, BorderLayout.NORTH);
+        card.add(scroll, BorderLayout.CENTER);
         return card;
     }
 
