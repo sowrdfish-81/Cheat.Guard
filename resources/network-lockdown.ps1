@@ -392,13 +392,16 @@ function Handle-ProtectRequest {
                 if ($parent) { [void]$dirs.Add($parent) }
             }
         }
-        foreach ($d in $dirs) { Protect-VaultDirectory $d }
+        $directoriesProtected = $true
+        foreach ($d in $dirs) {
+            if (-not (Protect-VaultDirectory $d)) { $directoriesProtected = $false }
+        }
         # Confirm only when something was actually hardened: a done file after a
         # rejected/failed request would make the app report success with NO
         # protection applied. The confirm write must not tear down the live
         # lockdown either (a failed marker write used to escape the try/catch
         # above and Restore-All the whole session).
-        if ($protectedCount -gt 0) {
+        if ($protectedCount -gt 0 -and $directoriesProtected) {
             try {
                 Remove-Item -LiteralPath $protectRequestFile -Force -ErrorAction SilentlyContinue
                 if (-not [string]::IsNullOrWhiteSpace($protectDoneFile)) {
@@ -414,16 +417,21 @@ function Handle-ProtectRequest {
 # parent folder is enough to remove a file. New files keep inheriting Modify so the app
 # can still write a session log and remove its own plaintext copy when sealing.
 function Protect-VaultDirectory([string]$Dir) {
-    if ([string]::IsNullOrWhiteSpace($Dir)) { return }
-    if (-not (Test-Path -LiteralPath $Dir)) { return }
+    if ([string]::IsNullOrWhiteSpace($Dir)) { return $false }
+    if (-not (Test-Path -LiteralPath $Dir)) { return $false }
     try {
-        Invoke-AclTool takeown ('/F "' + $Dir + '" /A') 30 | Out-Null
-        Invoke-AclTool icacls ('"' + $Dir + '" /inheritance:r') 30 | Out-Null
-        Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-32-544:(OI)(CI)(F)"') 30 | Out-Null   # Administrators
-        Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-18:(OI)(CI)(F)"') 30 | Out-Null       # SYSTEM
-        Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-32-545:(RX,W)"') 30 | Out-Null        # folder: read + create, no delete-child
-        Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-32-545:(OI)(IO)(M)"') 30 | Out-Null   # new files: modify
-    } catch {}
+        $steps = @(
+            (Invoke-AclTool takeown ('/F "' + $Dir + '" /A') 30),
+            (Invoke-AclTool icacls ('"' + $Dir + '" /inheritance:r') 30),
+            (Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-32-544:(OI)(CI)(F)"') 30),
+            (Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-18:(OI)(CI)(F)"') 30),
+            (Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-32-545:(RX,W)"') 30),
+            (Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-32-545:(OI)(IO)(M)"') 30)
+        )
+        return @($steps | Where-Object { $_ -ne 0 }).Count -eq 0
+    } catch {
+        return $false
+    }
 }
 
 function Remove-OurRules {
