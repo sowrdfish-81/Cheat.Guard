@@ -311,7 +311,9 @@ public class SettingsPanel extends JPanel {
             int idx = matches.getSelectedIndex();
             if (idx < 0 || idx >= shown.size()) return;
             com.cheatguard.config.InstalledApps.App app = shown.get(idx);
-            String[] shortcut = com.cheatguard.config.InstalledApps.resolveShortcut(app.lnkPath());
+            String[] shortcut = app.lnkPath().toLowerCase().endsWith(".exe")
+                    ? new String[]{app.lnkPath(), ""}
+                    : com.cheatguard.config.InstalledApps.resolveShortcut(app.lnkPath());
             String target = shortcut[0];
             if (target == null || target.isBlank()
                     || !target.toLowerCase().endsWith(".exe")) {
@@ -363,7 +365,7 @@ public class SettingsPanel extends JPanel {
         });
 
         return appCard("Allowed applications",
-                "Add apps by searching their real names - anything else a student opens is closed automatically. Use \"Choose .exe\" for a portable program.",
+                "Search installed or portable .exe files, then add the one you need.",
                 list, search, matchScroll, add, browse, clear, remove);
     }
 
@@ -461,7 +463,7 @@ public class SettingsPanel extends JPanel {
         if (base.toLowerCase().endsWith(".lnk")) {
             base = base.substring(0, base.length() - 4);
         }
-        String hay = (app.displayName() + " " + base).toLowerCase();
+        String hay = (app.displayName() + " " + base + " " + app.lnkPath()).toLowerCase();
         if (hay.contains(word)) return true;
         // initialism: "vs" -> the first letters of the name's words, in order
         StringBuilder initials = new StringBuilder();

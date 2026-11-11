@@ -7,6 +7,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.FileVisitOption;
+import java.util.EnumSet;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -30,6 +34,12 @@ public final class InstalledApps {
         List<App> apps = new ArrayList<>();
         for (String root : startMenuRoots()) {
             walk(new File(root), apps, seen, 0);
+        }
+        // Start-menu shortcuts miss portable tools, games and apps installed by
+        // launchers. Index executable files as well so search can find any real
+        // program on the machine, not only registered shortcuts.
+        for (String root : executableRoots()) {
+            walkExecutables(new File(root), apps, seen, 0);
         }
         apps.sort((a, b) -> a.displayName().compareToIgnoreCase(b.displayName()));
         return apps;
@@ -85,6 +95,37 @@ public final class InstalledApps {
             roots.add(appData + "\\Microsoft\\Windows\\Start Menu\\Programs");
         }
         return roots;
+    }
+
+    private static List<String> executableRoots() {
+        List<String> roots = new ArrayList<>();
+        for (String key : new String[]{"ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA"}) {
+            String value = System.getenv(key);
+            if (value != null && !value.isBlank()) roots.add(value);
+        }
+        String userProfile = System.getenv("USERPROFILE");
+        if (userProfile != null) {
+            roots.add(userProfile + "\\Desktop");
+            roots.add(userProfile + "\\Downloads");
+        }
+        return roots;
+    }
+
+    private static void walkExecutables(File dir, List<App> apps, Set<String> seen, int depth) {
+        if (dir == null || !dir.isDirectory() || depth > 6 || apps.size() >= 10000) return;
+        File[] kids = dir.listFiles();
+        if (kids == null) return;
+        for (File kid : kids) {
+            if (apps.size() >= 10000) return;
+            if (kid.isDirectory()) {
+                walkExecutables(kid, apps, seen, depth + 1);
+            } else if (kid.isFile() && kid.getName().toLowerCase(Locale.ROOT).endsWith(".exe")) {
+                String path = kid.getAbsolutePath();
+                if (!seen.add(path.toLowerCase(Locale.ROOT))) continue;
+                String name = kid.getName().substring(0, kid.getName().length() - 4);
+                apps.add(new App(path, name));
+            }
+        }
     }
 
     private static void walk(File dir, List<App> apps, Set<String> seen, int depth) {
