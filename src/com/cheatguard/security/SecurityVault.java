@@ -66,6 +66,20 @@ public class SecurityVault {
         Exception last = null;
         for (int attempt = 0; attempt < 3; attempt++) {
             try {
+                // A previous interrupted seal may have left a protected partial
+                // vault/signature behind. Ordinary delete then reports
+                // ERROR_ACCESS_DENIED and every retry fails forever; remove only
+                // this session's incomplete pair through the same elevated path
+                // used by the dashboard.
+                if (vaultFile.exists() || new File(vaultFile.getAbsolutePath() + ".sig").exists()) {
+                    File partialSig = new File(vaultFile.getAbsolutePath() + ".sig");
+                    if (!vaultFile.delete() && vaultFile.exists()
+                            || !partialSig.delete() && partialSig.exists()) {
+                        if (!LogProtection.deleteElevated(java.util.List.of(vaultFile, partialSig))) {
+                            throw new java.io.IOException("Windows denied cleanup of a previous partial seal.");
+                        }
+                    }
+                }
                 encryptor.encryptFile(plaintextLogFile, vaultFile, adminPassword);
                 last = null;
                 break;
@@ -88,7 +102,12 @@ public class SecurityVault {
         File sigFile = new File(vaultFile.getAbsolutePath() + ".sig");
         try (FileWriter fw = new FileWriter(sigFile)) { fw.write(signature); }
 
-        if (!plaintextLogFile.delete()) plaintextLogFile.deleteOnExit();
+        if (!plaintextLogFile.delete() && plaintextLogFile.exists()) {
+            if (!LogProtection.deleteElevated(java.util.List.of(plaintextLogFile))
+                    && plaintextLogFile.exists()) {
+                plaintextLogFile.deleteOnExit();
+            }
+        }
         hideFile(vaultFile);
         hideFile(sigFile);
         BackupManager.backupSealedPair(vaultFile, sigFile);
