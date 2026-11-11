@@ -32,12 +32,12 @@ import java.util.regex.Pattern;
 /** Checks GitHub for, and securely downloads, the official Cheat.Guard installer. */
 public final class UpdateChecker {
 
-    public static final String CURRENT_VERSION = "1.9.77";
+    public static final String CURRENT_VERSION = "1.9.78";
     private static final String OWNER = "sowrdfish-81";
     private static final String REPOSITORY = "Cheat.Guard";
     private static final String RELEASES_API =
             "https://api.github.com/repos/" + OWNER + "/" + REPOSITORY + "/releases/latest";
-    private static final String INSTALLER_NAME = "CheatGuardCentral-Setup.exe";
+    private static final String INSTALLER_NAME = "Cheat.Guard-Setup.exe";
     private static final String CHECKSUM_NAME = INSTALLER_NAME + ".sha256";
     private static final long MAX_INSTALLER_BYTES = 512L * 1024L * 1024L;
     private static final int MAX_API_BYTES = 2 * 1024 * 1024;
@@ -46,9 +46,9 @@ public final class UpdateChecker {
     private static final Pattern SHA256_LINE = Pattern.compile(
             "(?is)^\\s*([0-9a-f]{64})(?:\\s+.*)?\\s*$");
     private static final Pattern VERSIONED_INSTALLER = Pattern.compile(
-            "(?i)^CheatGuardCentral-Setup-v\\d+(?:\\.\\d+)*\\.exe$");
+            "(?i)^Cheat\\.Guard-Setup-v\\d+(?:\\.\\d+)*\\.exe$");
     private static final Pattern VERSIONED_CHECKSUM = Pattern.compile(
-            "(?i)^CheatGuardCentral-Setup-v\\d+(?:\\.\\d+)*\\.exe\\.sha256$");
+            "(?i)^Cheat\\.Guard-Setup-v\\d+(?:\\.\\d+)*\\.exe\\.sha256$");
 
     /** A newer release. The two-argument constructor preserves the old API. */
     public record UpdateInfo(String version, String downloadUrl, String checksumUrl, long size) {

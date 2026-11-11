@@ -4,16 +4,16 @@ cd /d "%~dp0"
 
 rem ============================================================
 rem  Cheat.Guard - ONE-COMMAND BUILDER
-rem  Produces exactly ONE artifact: dist\CheatGuardCentral-Setup.exe
+rem  Produces exactly ONE artifact: dist\Cheat.Guard-Setup.exe
 rem  and its SHA-256 companion asset for verified auto-updates.
 rem  A single Windows installer that bundles the app AND its
 rem  own Java runtime - nothing else to build or download.
 rem ============================================================
 
 rem Internal MSI version only (upgrade machinery); the shipped file carries no version.
-set "APP_VERSION=1.9.77"
+set "APP_VERSION=1.9.78"
 set "APP_NAME=CheatGuardCentral"
-set "SETUP_EXE=dist\CheatGuardCentral-Setup.exe"
+set "SETUP_EXE=dist\Cheat.Guard-Setup.exe"
 set "CHECKSUM_FILE=%SETUP_EXE%.sha256"
 
 echo ============================================================
