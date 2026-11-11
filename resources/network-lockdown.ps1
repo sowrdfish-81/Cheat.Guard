@@ -333,15 +333,25 @@ function Test-DnsFilter {
 # cannot grant itself one. Only grants are used: an explicit deny would also block the
 # elevated delete that the admin dashboard performs on purpose.
 function Protect-LogFile([string]$Path) {
-    if ([string]::IsNullOrWhiteSpace($Path)) { return }
-    if (-not (Test-Path -LiteralPath $Path)) { return }
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+    if (-not (Test-Path -LiteralPath $Path)) { return $false }
     try {
-        Invoke-AclTool takeown ('/F "' + $Path + '" /A') 30 | Out-Null
-        Invoke-AclTool icacls ('"' + $Path + '" /inheritance:r') 30 | Out-Null
-        Invoke-AclTool icacls ('"' + $Path + '" /grant "*S-1-5-32-544:(F)"') 30 | Out-Null   # Administrators: full
-        Invoke-AclTool icacls ('"' + $Path + '" /grant "*S-1-5-18:(F)"') 30 | Out-Null       # SYSTEM: full
-        Invoke-AclTool icacls ('"' + $Path + '" /grant "*S-1-5-32-545:(R)"') 30 | Out-Null   # Users: read only
-    } catch {}
+        $steps = @(
+            (Invoke-AclTool takeown ('/F "' + $Path + '" /A') 30),
+            (Invoke-AclTool icacls ('"' + $Path + '" /inheritance:r') 30),
+            (Invoke-AclTool icacls ('"' + $Path + '" /grant "*S-1-5-32-544:(F)"') 30),
+            (Invoke-AclTool icacls ('"' + $Path + '" /grant "*S-1-5-18:(F)"') 30),
+            (Invoke-AclTool icacls ('"' + $Path + '" /grant "*S-1-5-32-545:(R)"') 30)
+        )
+        if (@($steps | Where-Object { $_ -ne 0 }).Count -gt 0) {
+            Log-Step ("ACL protection failed for " + $Path)
+            return $false
+        }
+        return $true
+    } catch {
+        Log-Step ("ACL protection exception for " + $Path)
+        return $false
+    }
 }
 
 function Handle-ProtectRequest {
@@ -376,10 +386,11 @@ function Handle-ProtectRequest {
                 }
             } catch { $ok = $false }
             if (-not $ok) { continue }
-            Protect-LogFile $path
-            $protectedCount++
-            $parent = Split-Path -Parent $path
-            if ($parent) { [void]$dirs.Add($parent) }
+            if (Protect-LogFile $path) {
+                $protectedCount++
+                $parent = Split-Path -Parent $path
+                if ($parent) { [void]$dirs.Add($parent) }
+            }
         }
         foreach ($d in $dirs) { Protect-VaultDirectory $d }
         # Confirm only when something was actually hardened: a done file after a
