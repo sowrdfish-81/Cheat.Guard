@@ -32,7 +32,7 @@ import java.util.regex.Pattern;
 /** Checks GitHub for, and securely downloads, the official Cheat.Guard installer. */
 public final class UpdateChecker {
 
-    public static final String CURRENT_VERSION = "1.9.46";
+    public static final String CURRENT_VERSION = "1.9.74";
     private static final String OWNER = "sowrdfish-81";
     private static final String REPOSITORY = "CheatGuard-Central";
     private static final String RELEASES_API =
@@ -45,6 +45,10 @@ public final class UpdateChecker {
     private static final int MAX_REDIRECTS = 5;
     private static final Pattern SHA256_LINE = Pattern.compile(
             "(?is)^\\s*([0-9a-f]{64})(?:\\s+.*)?\\s*$");
+    private static final Pattern VERSIONED_INSTALLER = Pattern.compile(
+            "(?i)^CheatGuardCentral-Setup-v\\d+(?:\\.\\d+)*\\.exe$");
+    private static final Pattern VERSIONED_CHECKSUM = Pattern.compile(
+            "(?i)^CheatGuardCentral-Setup-v\\d+(?:\\.\\d+)*\\.exe\\.sha256$");
 
     /** A newer release. The two-argument constructor preserves the old API. */
     public record UpdateInfo(String version, String downloadUrl, String checksumUrl, long size) {
@@ -93,10 +97,10 @@ public final class UpdateChecker {
             for (Object value : assets) {
                 if (!(value instanceof Map<?, ?> asset)) return Optional.empty();
                 String name = stringValue(asset.get("name"));
-                if (INSTALLER_NAME.equals(name)) {
+                if (INSTALLER_NAME.equals(name) || VERSIONED_INSTALLER.matcher(name).matches()) {
                     if (installer != null) return Optional.empty();
                     installer = asset;
-                } else if (CHECKSUM_NAME.equals(name)) {
+                } else if (CHECKSUM_NAME.equals(name) || VERSIONED_CHECKSUM.matcher(name).matches()) {
                     if (checksum != null) return Optional.empty();
                     checksum = asset;
                 }
@@ -108,8 +112,8 @@ public final class UpdateChecker {
             Long size = longValue(installer.get("size"));
             if (installerUrl == null || checksumUrl == null || size == null
                     || size <= 0 || size > MAX_INSTALLER_BYTES) return Optional.empty();
-            validateAssetUrl(installerUrl, INSTALLER_NAME);
-            validateAssetUrl(checksumUrl, CHECKSUM_NAME);
+            validateAssetUrl(installerUrl, installerName(installerUrl, false));
+            validateAssetUrl(checksumUrl, checksumName(checksumUrl));
             return Optional.of(new UpdateInfo(version, installerUrl, checksumUrl, size));
         } catch (Exception ignored) {
             return Optional.empty();
@@ -130,12 +134,12 @@ public final class UpdateChecker {
             throws Exception {
         Objects.requireNonNull(update, "update");
         Objects.requireNonNull(dest, "dest");
-        URL installerUrl = validateAssetUrl(update.downloadUrl(), INSTALLER_NAME);
+        URL installerUrl = validateAssetUrl(update.downloadUrl(), installerName(update.downloadUrl(), false));
         String checksumUrlText = update.checksumUrl();
         if (checksumUrlText == null || checksumUrlText.isBlank()) {
             checksumUrlText = companionUrl(installerUrl);
         }
-        URL checksumUrl = validateAssetUrl(checksumUrlText, CHECKSUM_NAME);
+        URL checksumUrl = validateAssetUrl(checksumUrlText, checksumName(checksumUrlText));
         long expectedSize = update.size() > 0 ? update.size() : -1L;
         if (expectedSize > MAX_INSTALLER_BYTES) {
             throw new IOException("Installer is larger than the allowed maximum");
@@ -146,7 +150,7 @@ public final class UpdateChecker {
         if (parent == null || !Files.isDirectory(parent)) {
             throw new IOException("Update destination directory does not exist");
         }
-        String expectedHash = fetchChecksum(checksumUrl);
+        String expectedHash = fetchChecksum(checksumUrl, checksumName(checksumUrl.toString()));
         Path temporary = Files.createTempFile(parent,
                 destination.getFileName().toString() + ".", ".download");
         boolean replaced = false;
@@ -225,7 +229,8 @@ public final class UpdateChecker {
         try {
             URI uri = installerUrl.toURI();
             String path = uri.getPath();
-            if (path == null || !path.endsWith("/" + INSTALLER_NAME)) {
+            if (path == null || !(path.endsWith("/" + INSTALLER_NAME)
+                    || path.matches(".*/CheatGuardCentral-Setup-v\\d+(?:\\.\\d+)*\\.exe"))) {
                 throw new IOException("Installer URL does not name the expected asset");
             }
             URI companion = new URI(uri.getScheme(), uri.getUserInfo(), uri.getHost(), uri.getPort(),
@@ -234,6 +239,22 @@ public final class UpdateChecker {
         } catch (URISyntaxException e) {
             throw new IOException("Invalid installer URL", e);
         }
+    }
+
+    private static String installerName(String raw, boolean unused) {
+        try {
+            String path = URI.create(raw).getPath();
+            String name = path == null ? "" : path.substring(path.lastIndexOf('/') + 1);
+            return VERSIONED_INSTALLER.matcher(name).matches() ? name : INSTALLER_NAME;
+        } catch (Exception e) { return INSTALLER_NAME; }
+    }
+
+    private static String checksumName(String raw) {
+        try {
+            String path = URI.create(raw).getPath();
+            String name = path == null ? "" : path.substring(path.lastIndexOf('/') + 1);
+            return VERSIONED_CHECKSUM.matcher(name).matches() ? name : CHECKSUM_NAME;
+        } catch (Exception e) { return CHECKSUM_NAME; }
     }
 
     private static URL validateAssetUrl(String raw, String expectedName) throws IOException {
@@ -338,8 +359,8 @@ public final class UpdateChecker {
         return new String(bytes, StandardCharsets.UTF_8);
     }
 
-    private static String fetchChecksum(URL url) throws IOException {
-        HttpURLConnection connection = openConnection(url, CHECKSUM_NAME);
+    private static String fetchChecksum(URL url, String expectedName) throws IOException {
+        HttpURLConnection connection = openConnection(url, expectedName);
         try {
             if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
                 throw new IOException("Checksum asset returned HTTP " + connection.getResponseCode());
@@ -355,7 +376,7 @@ public final class UpdateChecker {
 
     private static DownloadResult downloadToTemp(URL url, Path temporary, long expectedSize,
             IntConsumer progress) throws Exception {
-        HttpURLConnection connection = openConnection(url, INSTALLER_NAME);
+        HttpURLConnection connection = openConnection(url, installerName(url.toString(), false));
         try {
             int status = connection.getResponseCode();
             if (status != HttpURLConnection.HTTP_OK) {
