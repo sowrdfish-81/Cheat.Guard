@@ -34,7 +34,7 @@ public final class UpdateChecker {
 
     public static final String CURRENT_VERSION = "1.9.76";
     private static final String OWNER = "sowrdfish-81";
-    private static final String REPOSITORY = "CheatGuard-Central";
+    private static final String REPOSITORY = "Cheat.Guard";
     private static final String RELEASES_API =
             "https://api.github.com/repos/" + OWNER + "/" + REPOSITORY + "/releases/latest";
     private static final String INSTALLER_NAME = "CheatGuardCentral-Setup.exe";
