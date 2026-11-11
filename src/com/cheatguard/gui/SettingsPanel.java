@@ -505,7 +505,7 @@ public class SettingsPanel extends JPanel {
                                JTextField search, JScrollPane matchScroll, JButton add,
                                JButton extra, JButton clear, JButton remove) {
         JPanel card = UITheme.card();
-        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setLayout(new BorderLayout(0, 12));
 
         JScrollPane scroll = UITheme.scroll(list);
         scroll.setAlignmentX(LEFT_ALIGNMENT);
