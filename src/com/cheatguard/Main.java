@@ -446,7 +446,9 @@ public class Main {
         courseField.addActionListener(e -> doStart.run());
         studentField.addActionListener(e -> doStart.run());
 
-        card.add(UITheme.title("New exam session"));
+        JLabel sessionTitle = UITheme.title("New exam session");
+        sessionTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
+        card.add(sessionTitle);
         card.add(Box.createVerticalStrut(8));
         card.add(Box.createVerticalStrut(16));
         card.add(labelled("Course code", courseField));
@@ -1091,7 +1093,11 @@ public class Main {
         JPasswordField pf = UITheme.password();
         pf.setPreferredSize(new Dimension(340, 42));
         pf.setMaximumSize(new Dimension(340, 42));
-        JPanel content = UITheme.column(8, leftAlign(UITheme.muted("Administrator password")), pf);
+        JLabel passwordLabel = UITheme.muted("Administrator password");
+        passwordLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        pf.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JPanel content = UITheme.column(8, passwordLabel, pf);
+        content.setAlignmentX(Component.CENTER_ALIGNMENT);
         content.setBorder(UITheme.padding(8, 12, 8, 12));
         JOptionPane pane = new JOptionPane(content, JOptionPane.PLAIN_MESSAGE,
                 JOptionPane.OK_CANCEL_OPTION);
