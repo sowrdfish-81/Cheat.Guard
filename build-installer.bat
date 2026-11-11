@@ -17,7 +17,7 @@ set "SETUP_EXE=dist\CheatGuardCentral-Setup.exe"
 set "CHECKSUM_FILE=%SETUP_EXE%.sha256"
 
 echo ============================================================
-echo  CheatGuard - single installer builder
+echo  Cheat.Guard - single installer builder
 echo  Output: %SETUP_EXE%
 echo ============================================================
 echo.

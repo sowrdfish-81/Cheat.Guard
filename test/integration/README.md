@@ -1,6 +1,6 @@
 # Windows VM integration tests
 
-These scripts exercise CheatGuard Central **on a real, disposable Windows
+These scripts exercise Cheat.Guard **on a real, disposable Windows
 machine**: the actual installer, the actual installed application, the actual
 network-lockdown helper and the actual emergency-restore tool. They are the
 only place where installer-, ACL-, firewall- and DNS-level behavior is

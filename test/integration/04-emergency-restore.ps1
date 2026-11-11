@@ -1,6 +1,6 @@
 # Phase 4: simulate an interrupted-session leftover (DNS pinned to the local
 # filter, stale firewall rules) and verify the shipped emergency-restore tool
-# repairs the machine while CheatGuard is not running.
+# repairs the machine while Cheat.Guard is not running.
 param(
     [string]$RepoRoot,
     [string]$InstallerPath,
