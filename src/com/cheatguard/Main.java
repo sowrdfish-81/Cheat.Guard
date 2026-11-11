@@ -50,7 +50,7 @@ import java.util.concurrent.TimeUnit;
 public class Main {
 
     /** Visible in the window title, so "which build am I running" is never a guess. */
-    private static final String BUILD_STAMP = "v1.9.61 (UI polish)";
+    private static final String BUILD_STAMP = "v1.9.63 (UI polish)";
 
     private static final InstanceGuard INSTANCE_GUARD = new InstanceGuard();
     private static final String CARD_FIRST_RUN = "FIRST_RUN";
@@ -386,6 +386,8 @@ public class Main {
         JPanel card = UITheme.card();
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setBorder(UITheme.padding(34, 44, 34, 44));
+        card.setPreferredSize(new Dimension(620, 620));
+        card.setMinimumSize(new Dimension(620, 620));
 
         JTextField courseField = UITheme.field("e.g. CSE-3202");
         JTextField studentField = UITheme.field("e.g. 2021831045");
