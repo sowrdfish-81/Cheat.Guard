@@ -2,6 +2,7 @@ package com.cheatguard.gui;
 
 import com.cheatguard.config.AppPaths;
 import com.cheatguard.security.AdminAuth;
+import com.cheatguard.security.LogProtection;
 import com.cheatguard.security.SecurityVault;
 
 import javax.swing.*;
@@ -227,10 +228,16 @@ public class DashboardPanel extends JPanel {
         new Thread(() -> {
             try {
                 vault.sealExisting(selected, sessionPassword.clone());
+                boolean protectedLog = LogProtection.protectElevated(java.util.List.of(
+                        new File(selected.getParent(), selected.getName().replaceFirst("(?i)\\.dat$", ".vault")),
+                        new File(selected.getParent(), selected.getName().replaceFirst("(?i)\\.dat$", ".vault") + ".sig")));
                 SwingUtilities.invokeLater(() -> {
                     outputPane.setText("");
                     resetStats();
                     refreshLogs();
+                    if (!protectedLog) JOptionPane.showMessageDialog(this,
+                            "The log was encrypted, but Windows could not confirm its file protection.",
+                            "Protection warning", JOptionPane.WARNING_MESSAGE);
                 });
             } catch (Exception ex) {
                 SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(this,

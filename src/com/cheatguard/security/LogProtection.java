@@ -160,4 +160,38 @@ public final class LogProtection {
             }
         }
     }
+
+    /** Protect an already-sealed log when no live exam helper remains. */
+    public static boolean protectElevated(List<File> files) {
+        List<File> targets = new ArrayList<>();
+        for (File f : files) if (f != null && f.isFile()) targets.add(f);
+        if (targets.isEmpty()) return true;
+        Path list = null;
+        try {
+            StringBuilder sb = new StringBuilder();
+            for (File f : targets) sb.append(f.getAbsolutePath()).append(System.lineSeparator());
+            list = Files.createTempFile("cheatguard-protect-", ".txt");
+            Files.writeString(list, sb.toString(), StandardCharsets.UTF_8);
+            String inner = "$ok=$true; foreach($p in Get-Content -LiteralPath '"
+                    + list.toAbsolutePath().toString().replace("'", "''") + "'){"
+                    + "if($p.Trim()){ takeown /F \"$p\" /A | Out-Null; if($LASTEXITCODE -ne 0){$ok=$false};"
+                    + "icacls \"$p\" /inheritance:r | Out-Null; if($LASTEXITCODE -ne 0){$ok=$false};"
+                    + "icacls \"$p\" /grant '*S-1-5-32-544:(F)' | Out-Null; if($LASTEXITCODE -ne 0){$ok=$false};"
+                    + "icacls \"$p\" /grant '*S-1-5-18:(F)' | Out-Null; if($LASTEXITCODE -ne 0){$ok=$false};"
+                    + "icacls \"$p\" /grant '*S-1-5-32-545:(R)' | Out-Null; if($LASTEXITCODE -ne 0){$ok=$false}}};"
+                    + "Remove-Item -LiteralPath '" + list.toAbsolutePath().toString().replace("'", "''")
+                    + "' -Force -ErrorAction SilentlyContinue; if(-not $ok){exit 1}";
+            String encoded = Base64.getEncoder().encodeToString(inner.getBytes(StandardCharsets.UTF_16LE));
+            String outer = "$p=Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -Verb RunAs -WindowStyle Hidden -PassThru -Wait -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-WindowStyle','Hidden','-EncodedCommand','"
+                    + encoded + "'; if($null -eq $p){exit 1}; exit $p.ExitCode";
+            Process p = new ProcessBuilder("powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass",
+                    "-WindowStyle", "Hidden", "-Command", outer).redirectErrorStream(true).start();
+            p.getInputStream().readAllBytes();
+            return p.waitFor(120, java.util.concurrent.TimeUnit.SECONDS) && p.exitValue() == 0;
+        } catch (Exception e) {
+            return false;
+        } finally {
+            if (list != null) try { Files.deleteIfExists(list); } catch (Exception ignored) {}
+        }
+    }
 }
