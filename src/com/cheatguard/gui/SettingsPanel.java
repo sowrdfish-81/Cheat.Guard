@@ -279,7 +279,10 @@ public class SettingsPanel extends JPanel {
         JScrollPane matchScroll = UITheme.scroll(matches);
         matchScroll.setAlignmentX(LEFT_ALIGNMENT);
         matchScroll.setPreferredSize(new Dimension(300, 120));
-        matchScroll.setVisible(false);
+        JPopupMenu suggestions = new JPopupMenu();
+        suggestions.setBorder(BorderFactory.createLineBorder(UITheme.BORDER));
+        suggestions.setLayout(new BorderLayout());
+        suggestions.add(matchScroll, BorderLayout.CENTER);
 
         JButton clear = UITheme.ghost("Clear");
         clear.addActionListener(e -> {
@@ -298,9 +301,13 @@ public class SettingsPanel extends JPanel {
                     }
                 }
             }
-            boolean show = !q.isEmpty();
-            matchScroll.setVisible(show);
-            search.getParent().revalidate();
+            boolean show = !q.isEmpty() && !shown.isEmpty() && search.isShowing();
+            if (show) {
+                suggestions.setPopupSize(Math.max(search.getWidth(), 360), 150);
+                suggestions.show(search, 0, search.getHeight());
+            } else {
+                suggestions.setVisible(false);
+            }
         };
         search.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { refill.run(); }
@@ -519,8 +526,6 @@ public class SettingsPanel extends JPanel {
         card.add(Box.createVerticalStrut(14));
         card.add(leftAlign(search));
         card.add(Box.createVerticalStrut(8));
-        card.add(leftAlign(matchScroll));
-        card.add(Box.createVerticalStrut(10));
         card.add(leftAlign(actions));
         card.add(Box.createVerticalStrut(12));
         card.add(leftAlign(scroll));
