@@ -40,7 +40,7 @@ public class SettingsPanel extends JPanel {
 
         JLabel title = UITheme.title("Exam allowlist");
         JLabel subtitle = UITheme.muted(
-                "Only the applications and websites listed here stay usable during a session.");
+                "");
         title.setAlignmentX(LEFT_ALIGNMENT);
         subtitle.setAlignmentX(LEFT_ALIGNMENT);
         header.add(UITheme.column(4, title, subtitle), BorderLayout.WEST);
@@ -386,7 +386,7 @@ public class SettingsPanel extends JPanel {
         });
 
         return appCard("Allowed applications",
-                "Search installed or portable .exe files, then add the one you need.",
+                "",
                 list, search, matchScroll, add, browse, clear, remove);
     }
 
@@ -569,7 +569,7 @@ public class SettingsPanel extends JPanel {
         });
 
         return card("Allowed websites",
-                "Subdomains are included automatically. Every other domain fails to resolve during a session.",
+                "",
                 list, input, add, null, remove);
     }
 
@@ -653,8 +653,6 @@ public class SettingsPanel extends JPanel {
 
         card.add(leftAlign(UITheme.row(0, UITheme.section("Administrator password"))));
         card.add(Box.createVerticalStrut(6));
-        card.add(leftAlign(UITheme.row(0, hint("Stored only as a salted PBKDF2 digest, tied to this "
-                + "computer. It cannot be read back from the app, the installer or the source code."))));
         card.add(Box.createVerticalStrut(16));
         card.add(leftAlign(UITheme.muted("Current password")));
         card.add(Box.createVerticalStrut(5));
@@ -710,6 +708,12 @@ public class SettingsPanel extends JPanel {
     }
 
     private JLabel hint(String text) {
+        if (text == null || text.isBlank()) {
+            JLabel empty = new JLabel();
+            empty.setPreferredSize(new Dimension(0, 0));
+            empty.setMaximumSize(new Dimension(0, 0));
+            return empty;
+        }
         JLabel l = UITheme.muted("<html><body style='width:228px'>" + text + "</body></html>");
         l.setForeground(UITheme.TEXT_DIM);
         return l;

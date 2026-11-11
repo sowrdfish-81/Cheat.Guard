@@ -50,7 +50,7 @@ import java.util.concurrent.TimeUnit;
 public class Main {
 
     /** Visible in the window title, so "which build am I running" is never a guess. */
-    private static final String BUILD_STAMP = "v1.9.60 (UI polish)";
+    private static final String BUILD_STAMP = "v1.9.61 (UI polish)";
 
     private static final InstanceGuard INSTANCE_GUARD = new InstanceGuard();
     private static final String CARD_FIRST_RUN = "FIRST_RUN";
@@ -448,8 +448,7 @@ public class Main {
 
         card.add(UITheme.title("New exam session"));
         card.add(Box.createVerticalStrut(8));
-        card.add(UITheme.muted("Set the student and exam details."));
-        card.add(Box.createVerticalStrut(24));
+        card.add(Box.createVerticalStrut(16));
         card.add(labelled("Course code", courseField));
         card.add(Box.createVerticalStrut(14));
         card.add(labelled("Student ID", studentField));
