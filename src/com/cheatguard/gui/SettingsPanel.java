@@ -266,13 +266,15 @@ public class SettingsPanel extends JPanel {
         // search bar: type keywords ("vs code", "python", "clion") and matching
         // INSTALLED apps appear by their real names; picking one adds the exe it
         // points to. The suggestion list stays HIDDEN until something is typed.
-        JTextField search = UITheme.field("Search installed apps...  (e.g. vs code)");
+        JTextField search = UITheme.field("Search any .exe by name or path...");
+        search.setEnabled(false);
         DefaultListModel<String> matchModel = new DefaultListModel<>();
         JList<String> matches = new JList<>(matchModel);
         UITheme.styleList(matches);
         matches.setVisibleRowCount(6);
+        // Inventory can touch thousands of files; never block the Swing EDT.
         List<com.cheatguard.config.InstalledApps.App> installed =
-                com.cheatguard.config.InstalledApps.list();
+                java.util.Collections.synchronizedList(new ArrayList<>());
         List<com.cheatguard.config.InstalledApps.App> shown = new ArrayList<>();
         JScrollPane matchScroll = UITheme.scroll(matches);
         matchScroll.setAlignmentX(LEFT_ALIGNMENT);
@@ -305,6 +307,17 @@ public class SettingsPanel extends JPanel {
             @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { refill.run(); }
             @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { refill.run(); }
         });
+
+        new Thread(() -> {
+            List<com.cheatguard.config.InstalledApps.App> found =
+                    com.cheatguard.config.InstalledApps.list();
+            SwingUtilities.invokeLater(() -> {
+                installed.addAll(found);
+                search.setEnabled(true);
+                search.setToolTipText("Search " + found.size() + " executable files");
+                refill.run();
+            });
+        }, "CheatGuard-AppInventory").start();
 
         JButton add = UITheme.secondary("Add selected");
         add.addActionListener(e -> {
