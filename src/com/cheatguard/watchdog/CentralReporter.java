@@ -370,8 +370,7 @@ public final class CentralReporter {
                 sleepQuiet(500);
                 continue;
             }
-            try (Socket socket = CentralTls.openClientSocket(host, CENTRAL_TCP_PORT,
-                    beaconFingerprints.get(host))) {
+            try (Socket socket = openReporterSocket(host)) {
                 activeSocket = socket;
                 // In TLS mode openClientSocket already connected and handshaken;
                 // connecting again throws SocketException("already connected").
@@ -461,6 +460,21 @@ public final class CentralReporter {
         synchronized (queue) {
             return !queue.isEmpty();
         }
+    }
+
+    /** Pair a manually entered monitor before opening the authenticated TLS link. */
+    private Socket openReporterSocket(String host) throws java.io.IOException {
+        // Manual IPs can race the asynchronous discovery thread. Pair the
+        // current certificate immediately before the first TLS connection;
+        // this also repairs a stale truststore after the monitor rotates
+        // its identity or the student joins a new network.
+        if (!manualHost.isEmpty() && manualHost.equals(host)
+                && beaconFingerprints.get(host) == null) {
+            String fingerprint = CentralTls.pairMonitorOverTcp(host, CENTRAL_TCP_PORT);
+            beaconFingerprints.put(host, fingerprint);
+        }
+        return CentralTls.openClientSocket(host, CENTRAL_TCP_PORT,
+                beaconFingerprints.get(host));
     }
 
     private static void sleepQuiet(long ms) {
