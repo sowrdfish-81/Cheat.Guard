@@ -240,6 +240,24 @@ public final class CentralReporter {
     private void startTcpDiscovery() {
         Thread t = new Thread(() -> {
             try {
+                // A manually entered monitor address already occupies
+                // centralHost, so the old probe loop skipped it entirely.
+                // That left the student without the monitor certificate
+                // fingerprint and TLS pairing failed with "no monitor found"
+                // even though TCP 47821 was reachable. Pair the typed host
+                // first; LAN scanning remains the fallback for auto-detect.
+                if (!manualHost.isEmpty()) {
+                    try (java.net.Socket probe = new java.net.Socket()) {
+                        probe.connect(new java.net.InetSocketAddress(manualHost,
+                                CENTRAL_TCP_PORT), 3000);
+                        String fingerprint = CentralTls.pairMonitorOverTcp(
+                                manualHost, CENTRAL_TCP_PORT);
+                        beaconFingerprints.put(manualHost, fingerprint);
+                    } catch (Exception ignored) {
+                        // The sender loop reports the actionable connection
+                        // error; discovery must remain best-effort.
+                    }
+                }
                 java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors
                         .newFixedThreadPool(24);
                 java.util.List<java.util.concurrent.Future<?>> jobs = new java.util.ArrayList<>();
