@@ -14,8 +14,8 @@ Release: [v1.9.76](https://github.com/sowrdfish-81/Cheat.Guard/releases/tag/v1.9
 Release assets (see the release page for the exact SHA-256 of the current
 installer; the in-app updater verifies it before installing):
 
-- `CheatGuardCentral-Setup.exe`
-- `CheatGuardCentral-Setup.exe.sha256`
+- `Cheat.Guard-Setup.exe`
+- `Cheat.Guard-Setup.exe.sha256`
 
 ## Features
 
@@ -61,8 +61,8 @@ build-installer.bat
 Produces:
 
 ```text
-dist\CheatGuardCentral-Setup.exe
-dist\CheatGuardCentral-Setup.exe.sha256
+dist\Cheat.Guard-Setup.exe
+dist\Cheat.Guard-Setup.exe.sha256
 ```
 
 The installer contains the application and its bundled Java runtime. WiX
@@ -122,7 +122,7 @@ build-installer.bat        Installer build and checksum generation
 
 ## Operational workflow (invigilator)
 
-1. Install `CheatGuardCentral-Setup.exe` with administrator privileges on
+1. Install `Cheat.Guard-Setup.exe` with administrator privileges on
    the invigilator PC and every student PC.
 2. Set the administrator password on first launch on each machine.
 3. On the invigilator PC, open Central Monitor and press **Start monitor**.

@@ -23,7 +23,7 @@ Requirements: Windows 10+, JDK 17+, WiX Toolset 3.x (a copy under
 build-installer.bat
 ```
 
-produces `dist\CheatGuardCentral-Setup.exe` and its `.sha256`.
+produces `dist\Cheat.Guard-Setup.exe` and its `.sha256`.
 
 ## Running the tests
 

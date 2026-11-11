@@ -115,7 +115,7 @@ streams audit events to the invigilator's central monitor over TLS.
   (`test/ps1-syntax-check.ps1`).
 - `git diff --check`.
 - Automatic WiX 3.14 download; `build-installer.bat` producing
-  `dist\CheatGuardCentral-Setup.exe` + `.sha256`; independent checksum
+  `dist\Cheat.Guard-Setup.exe` + `.sha256`; independent checksum
   verification; artifacts uploaded.
 
 ### Real-Windows integration tests
