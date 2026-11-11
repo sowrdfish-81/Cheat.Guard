@@ -17,7 +17,7 @@ fallback.
    exchange). Wrong code or missing challenge = connection rejected.
 
 Port and firewall stay exactly as before: **TCP 47821** in both modes, the
-same `CheatGuard Central Monitor` firewall rule.
+same `Cheat.Guard Monitor` firewall rule.
 
 ## Automatic setup (recommended)
 

@@ -151,7 +151,7 @@ public final class CentralTls {
             // JDK tool when the installed runtime does not contain it.
             if (!new File(keytool).isFile()) keytool = "keytool";
             runKeytool(keytool, "-genkeypair", "-alias", "central", "-keyalg", "RSA", "-keysize", "2048",
-                    "-validity", "3650", "-dname", "CN=CheatGuard Central Monitor", "-ext", san,
+                    "-validity", "3650", "-dname", "CN=Cheat.Guard Monitor", "-ext", san,
                     "-keystore", key.getAbsolutePath(), "-storetype", "PKCS12", "-storepass", password, "-keypass", password);
             File cert = File.createTempFile("cheatguard-central-", ".cer", dir);
             try {

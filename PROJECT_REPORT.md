@@ -1,14 +1,14 @@
-# CheatGuard Central — v1.9.0 Project Report
+# Cheat.Guard — v1.9.0 Project Report
 
 ## Scope
 
 This report records the current implementation, security hardening,
-verification status, and release process for CheatGuard Central v1.9.0. It
+verification status, and release process for Cheat.Guard v1.9.0. It
 describes only what is in the repository now.
 
 ## Product summary
 
-CheatGuard Central is a Windows Java desktop application for supervised
+Cheat.Guard is a Windows Java desktop application for supervised
 online exams. The application controls approved processes, restricts network
 access to approved websites, monitors removable devices, limits access to
 files outside the exam workspace, creates protected session records, and

@@ -136,7 +136,7 @@ public class CentralTlsTest {
                 return;
             }
             default -> {
-                dname = "CN=CheatGuard Central Monitor";
+                dname = "CN=Cheat.Guard Monitor";
                 alias = "central";
             }
         }

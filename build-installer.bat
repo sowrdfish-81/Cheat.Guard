@@ -3,7 +3,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
 
 rem ============================================================
-rem  Cheat.Guard Central - ONE-COMMAND BUILDER
+rem  Cheat.Guard - ONE-COMMAND BUILDER
 rem  Produces exactly ONE artifact: dist\CheatGuardCentral-Setup.exe
 rem  and its SHA-256 companion asset for verified auto-updates.
 rem  A single Windows installer that bundles the app AND its
@@ -11,7 +11,7 @@ rem  own Java runtime - nothing else to build or download.
 rem ============================================================
 
 rem Internal MSI version only (upgrade machinery); the shipped file carries no version.
-set "APP_VERSION=1.9.74"
+set "APP_VERSION=1.9.75"
 set "APP_NAME=CheatGuardCentral"
 set "SETUP_EXE=dist\CheatGuardCentral-Setup.exe"
 set "CHECKSUM_FILE=%SETUP_EXE%.sha256"
@@ -123,7 +123,7 @@ if exist "%SETUP_EXE%" (
   if not exist "%CHECKSUM_FILE%" (echo ERROR: checksum asset was not produced.& exit /b 1)
   echo  Checksum: %CHECKSUM_FILE%
   echo  This ONE file contains the central monitor + Java runtime.
-  echo  Double-click it to install Cheat.Guard Central.
+  echo  Double-click it to install Cheat.Guard.
   echo ============================================================
 ) else (
   echo ERROR: expected installer %SETUP_EXE% was not produced.

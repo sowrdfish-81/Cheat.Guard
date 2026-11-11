@@ -1,4 +1,4 @@
-# Contributing to CheatGuard Central
+# Contributing to Cheat.Guard
 
 Thanks for helping improve exam integrity tooling. This repository follows a
 few firm rules because the software enforces security during real exams.

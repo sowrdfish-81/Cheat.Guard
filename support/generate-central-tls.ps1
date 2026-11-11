@@ -55,7 +55,7 @@ foreach ($name in $ExtraDnsNames) {
 
 Write-Host 'Generating the monitor certificate (self-signed, 10 years)...'
 & $keytool -genkeypair -alias central -keyalg RSA -keysize 2048 -validity 3650 `
-    -dname "CN=CheatGuard Central Monitor" -ext $san `
+    -dname "CN=Cheat.Guard Monitor" -ext $san `
     -keystore $keystore -storetype PKCS12 -storepass $StorePassword -keypass $StorePassword
 if ($LASTEXITCODE -ne 0) { throw 'keytool -genkeypair failed' }
 

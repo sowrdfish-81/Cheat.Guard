@@ -2,7 +2,7 @@
 
 ## Our standard
 
-Everyone contributing to CheatGuard Central - code, issues, reviews,
+Everyone contributing to Cheat.Guard - code, issues, reviews,
 documentation - is expected to keep the discussion technical and respectful.
 
 **Do:**

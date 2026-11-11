@@ -44,7 +44,7 @@ import com.cheatguard.watchdog.CentralTls;
 public class CentralMonitorPanel extends JPanel {
 
     private static final int CENTRAL_TCP_PORT = 47821;
-    private static final String FIREWALL_RULE_NAME = "CheatGuard Central Monitor";
+    private static final String FIREWALL_RULE_NAME = "Cheat.Guard Monitor";
     private static final int MAX_PENDING_BYTES = 128 * 1024;
     private static final int MAX_STUDENTS = 500;
     private static final int MAX_EVENTS_PER_STUDENT = 2000;

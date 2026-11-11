@@ -1,6 +1,6 @@
-# CheatGuard Central
+# Cheat.Guard
 
-CheatGuard Central is a Windows desktop application for supervised online
+Cheat.Guard is a Windows desktop application for supervised online
 exams: process control, DNS-layer website allowlisting, file-access walls,
 device monitoring, tamper-evident sealed audit logs, and a live central
 monitor the invigilator watches. Student PCs stream their audit events to the

@@ -27,7 +27,7 @@ public class RepairHarness {
         if (!new File(keytool).isFile()) keytool = "keytool";
         Process p = new ProcessBuilder(keytool, "-genkeypair", "-alias", "central",
                 "-keyalg", "RSA", "-keysize", "2048", "-validity", "30",
-                "-dname", "CN=CheatGuard Central Monitor", "-ext",
+                "-dname", "CN=Cheat.Guard Monitor", "-ext",
                 "SAN=dns:localhost,ip:127.0.0.1", "-keystore", key.getAbsolutePath(),
                 "-storetype", "PKCS12", "-storepass", "v2pass", "-keypass", "v2pass")
                 .redirectErrorStream(true).start();
