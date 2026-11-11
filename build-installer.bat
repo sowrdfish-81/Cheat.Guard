@@ -11,7 +11,7 @@ rem  own Java runtime - nothing else to build or download.
 rem ============================================================
 
 rem Internal MSI version only (upgrade machinery); the shipped file carries no version.
-set "APP_VERSION=1.9.75"
+set "APP_VERSION=1.9.76"
 set "APP_NAME=CheatGuardCentral"
 set "SETUP_EXE=dist\CheatGuardCentral-Setup.exe"
 set "CHECKSUM_FILE=%SETUP_EXE%.sha256"
