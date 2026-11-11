@@ -28,6 +28,15 @@ public class SecurityVault {
 
     public void sealVault(File plaintextLogFile, char[] adminPassword) throws Exception {
         lockManager.releaseLock();
+        // Encryption can finish before ACL hardening. If hardening then fails,
+        // the plaintext is already gone and a retry must not report
+        // "session log is missing" forever; the existing vault is the sealed
+        // result and the caller can retry only the protection step.
+        if (plaintextLogFile != null && !plaintextLogFile.exists()) {
+            File existingVault = vaultFor(plaintextLogFile);
+            File existingSig = new File(existingVault.getAbsolutePath() + ".sig");
+            if (existingVault.isFile() && existingSig.isFile()) return;
+        }
         seal(plaintextLogFile, adminPassword);
     }
 
@@ -52,9 +61,7 @@ public class SecurityVault {
         // .dat is accepted case-insensitively above, so derive the vault name the
         // same way; a case-sensitive replace on SESSION.DAT would make vaultFile
         // the plaintext file itself and the delete below would destroy the log.
-        File vaultFile = lower.endsWith(".dat")
-                ? new File(plaintextLogFile.getParent(), name.substring(0, name.length() - 4) + ".vault")
-                : new File(plaintextLogFile.getParent(), name + ".vault");
+        File vaultFile = vaultFor(plaintextLogFile);
         if (vaultFile.getCanonicalFile().equals(plaintextLogFile.getCanonicalFile())) {
             throw new IllegalStateException("Refusing to seal: vault path equals the plaintext log path.");
         }
@@ -111,6 +118,14 @@ public class SecurityVault {
         hideFile(vaultFile);
         hideFile(sigFile);
         BackupManager.backupSealedPair(vaultFile, sigFile);
+    }
+
+    private static File vaultFor(File plaintextLogFile) {
+        String name = plaintextLogFile.getName();
+        String lower = name.toLowerCase();
+        return lower.endsWith(".dat")
+                ? new File(plaintextLogFile.getParent(), name.substring(0, name.length() - 4) + ".vault")
+                : new File(plaintextLogFile.getParent(), name + ".vault");
     }
 
     /** Opens a sealed .vault or an unsealed .dat left by a forced termination. */
