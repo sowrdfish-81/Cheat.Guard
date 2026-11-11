@@ -267,7 +267,6 @@ public class SettingsPanel extends JPanel {
         // INSTALLED apps appear by their real names; picking one adds the exe it
         // points to. The suggestion list stays HIDDEN until something is typed.
         JTextField search = UITheme.field("Search any .exe by name or path...");
-        search.setEnabled(false);
         DefaultListModel<String> matchModel = new DefaultListModel<>();
         JList<String> matches = new JList<>(matchModel);
         UITheme.styleList(matches);
@@ -699,9 +698,9 @@ public class SettingsPanel extends JPanel {
         card.add(Box.createVerticalStrut(6));
         card.add(leftAlign(UITheme.row(0, hint(hintText))));
         card.add(Box.createVerticalStrut(14));
-        card.add(scroll);
-        card.add(Box.createVerticalStrut(12));
         card.add(addRow);
+        card.add(Box.createVerticalStrut(12));
+        card.add(scroll);
         card.add(Box.createVerticalStrut(10));
         card.add(actions);
         return card;
