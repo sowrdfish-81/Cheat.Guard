@@ -279,13 +279,13 @@ public class Main {
 
         JPasswordField first = UITheme.password();
         JPasswordField second = UITheme.password();
-        first.setMaximumSize(new Dimension(400, 42));
-        second.setMaximumSize(new Dimension(400, 42));
+        first.setMaximumSize(new Dimension(520, 44));
+        second.setMaximumSize(new Dimension(520, 44));
 
         JLabel error = UITheme.muted(" ");
         error.setForeground(UITheme.ACCENT_RED);
         JButton save = UITheme.primary("Create password and continue");
-        save.setMaximumSize(new Dimension(400, 46));
+        save.setMaximumSize(new Dimension(520, 46));
 
         Runnable doSave = () -> save.doClick();
         first.addActionListener(e -> doSave.run());
@@ -391,16 +391,16 @@ public class Main {
         JTextField studentField = UITheme.field("e.g. 2021831045");
         JTextField centralField = UITheme.field("Auto-detect via monitor beacon, or type e.g. 192.168.0.50");
         JTextField codeField = UITheme.field("Exam code from the invigilator (e.g. 482913)");
-        codeField.setMaximumSize(new Dimension(400, 42));
-        courseField.setMaximumSize(new Dimension(400, 42));
-        studentField.setMaximumSize(new Dimension(400, 42));
-        centralField.setMaximumSize(new Dimension(400, 42));
+        codeField.setMaximumSize(new Dimension(520, 44));
+        courseField.setMaximumSize(new Dimension(520, 44));
+        studentField.setMaximumSize(new Dimension(520, 44));
+        centralField.setMaximumSize(new Dimension(520, 44));
         centralField.setText(AppConfig.getInstance().getCentralHost());
 
         JButton startBtn = UITheme.primary("Start monitoring");
         JButton backBtn = UITheme.ghost("Back");
-        startBtn.setMaximumSize(new Dimension(400, 46));
-        backBtn.setMaximumSize(new Dimension(400, 38));
+        startBtn.setMaximumSize(new Dimension(520, 46));
+        backBtn.setMaximumSize(new Dimension(520, 40));
 
         Runnable doStart = () -> {
             String course = courseField.getText().trim();
@@ -1090,9 +1090,10 @@ public class Main {
     /** Ask for the admin password in a styled dialog; null means cancelled. */
     private char[] promptAdminPassword(String title) {
         JPasswordField pf = UITheme.password();
-        pf.setPreferredSize(new Dimension(260, 36));
+        pf.setPreferredSize(new Dimension(340, 42));
+        pf.setMaximumSize(new Dimension(340, 42));
         JPanel content = UITheme.column(8, leftAlign(UITheme.muted("Administrator password")), pf);
-        content.setBorder(UITheme.padding(4, 4, 4, 4));
+        content.setBorder(UITheme.padding(8, 12, 8, 12));
         int result = JOptionPane.showConfirmDialog(frame, content, title,
                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
         return result == JOptionPane.OK_OPTION ? pf.getPassword() : null;
@@ -1250,7 +1251,7 @@ public class Main {
         group.setOpaque(false);
         group.setLayout(new BoxLayout(group, BoxLayout.Y_AXIS));
         group.setAlignmentX(Component.CENTER_ALIGNMENT);
-        group.setMaximumSize(new Dimension(400, 76));
+        group.setMaximumSize(new Dimension(520, 78));
         group.add(leftAlign(UITheme.muted(caption)));
         group.add(Box.createVerticalStrut(6));
         field.setAlignmentX(Component.LEFT_ALIGNMENT);
