@@ -122,9 +122,7 @@ public class CentralMonitorPanel extends JPanel {
 
         // ------------------------------------------------------------- header
         JLabel title = UITheme.title("Invigilator central monitor");
-        JLabel subtitle = UITheme.muted("Live alerts from every exam PC on this network. "
-                + "Red = the student TRIED something - read their log before deciding. "
-                + "Start here first, then start the sessions on the students' PCs.");
+        JLabel subtitle = UITheme.muted("Live student connections and alerts.");
         JPanel titles = new JPanel();
         titles.setLayout(new BoxLayout(titles, BoxLayout.Y_AXIS));
         titles.setOpaque(false);
@@ -761,7 +759,7 @@ public class CentralMonitorPanel extends JPanel {
         // successful one during troubleshooting.
         if (!ruleExists() && !runElevated("netsh.exe", "advfirewall", "firewall", "add", "rule",
                 "name=" + FIREWALL_RULE_NAME, "dir=in", "action=allow",
-                "protocol=TCP", "localport=" + CENTRAL_TCP_PORT)) {
+                "protocol=TCP", "localport=" + CENTRAL_TCP_PORT) || !ruleExists()) {
             throw new IllegalStateException("Windows Firewall permission was not granted. Approve the administrator prompt.");
         }
         firewallRuleAdded = true;
@@ -800,6 +798,15 @@ public class CentralMonitorPanel extends JPanel {
     private static boolean runElevated(String... command) {
         try {
             if (command == null || command.length == 0) return false;
+            if (isCurrentProcessElevated()) {
+                Process p = new ProcessBuilder(command).redirectErrorStream(true).start();
+                p.getInputStream().readAllBytes();
+                if (!p.waitFor(30, java.util.concurrent.TimeUnit.SECONDS)) {
+                    p.destroyForcibly();
+                    return false;
+                }
+                return p.exitValue() == 0;
+            }
             StringBuilder args = new StringBuilder("@");
             args.append("(");
             for (int i = 1; i < command.length; i++) {
@@ -818,6 +825,22 @@ public class CentralMonitorPanel extends JPanel {
                 return false;
             }
             return p.exitValue() == 0;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static boolean isCurrentProcessElevated() {
+        try {
+            Process p = new ProcessBuilder("powershell.exe", "-NoProfile", "-NonInteractive",
+                    "-WindowStyle", "Hidden", "-Command",
+                    "(New-Object Security.Principal.WindowsPrincipal("+
+                            "[Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole("+
+                            "[Security.Principal.WindowsBuiltInRole]::Administrator)")
+                    .redirectErrorStream(true).start();
+            String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
+            return p.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)
+                    && "true".equalsIgnoreCase(out);
         } catch (Exception ignored) {
             return false;
         }

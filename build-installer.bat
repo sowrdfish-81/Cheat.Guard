@@ -11,7 +11,7 @@ rem  own Java runtime - nothing else to build or download.
 rem ============================================================
 
 rem Internal MSI version only (upgrade machinery); the shipped file carries no version.
-set "APP_VERSION=1.9.46"
+set "APP_VERSION=1.9.50"
 set "APP_NAME=CheatGuardCentral"
 set "SETUP_EXE=dist\CheatGuardCentral-Setup.exe"
 set "CHECKSUM_FILE=%SETUP_EXE%.sha256"
@@ -102,7 +102,7 @@ jpackage ^
   --win-menu ^
   --win-menu-group "Cheat.Guard" ^
   --win-dir-chooser ^
-  --win-upgrade-uuid 4d7c1e9a-6b32-4f85-9e01-8a55c3d2b7f4 ^
+  --win-upgrade-uuid 8f4a2c71-3d96-4b58-ae20-6c91d7f045b3 ^
   --java-options "-Dfile.encoding=UTF-8" ^
   --java-options "-Djava.net.preferIPv4Stack=true" ^
   --add-modules java.base,java.desktop,java.management,java.logging,java.xml,jdk.crypto.ec ^

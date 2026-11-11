@@ -50,7 +50,7 @@ import java.util.concurrent.TimeUnit;
 public class Main {
 
     /** Visible in the window title, so "which build am I running" is never a guess. */
-    private static final String BUILD_STAMP = "2026-10-06 09:30";
+    private static final String BUILD_STAMP = "v1.9.50 (UI polish)";
 
     private static final InstanceGuard INSTANCE_GUARD = new InstanceGuard();
     private static final String CARD_FIRST_RUN = "FIRST_RUN";
@@ -366,7 +366,7 @@ public class Main {
 
         card.add(brandMark(360));
         card.add(Box.createVerticalStrut(14));
-        card.add(UITheme.muted("Exam lockdown for Windows — website allowlist, app control and sealed audit logs"));
+        card.add(UITheme.muted("Secure exam monitoring for Windows"));
         card.add(Box.createVerticalStrut(30));
         card.add(startBtn);
         card.add(Box.createVerticalStrut(11));
@@ -448,17 +448,15 @@ public class Main {
 
         card.add(UITheme.title("New exam session"));
         card.add(Box.createVerticalStrut(8));
-        card.add(UITheme.muted("A Desktop folder named Exam_<StudentID> is created for the student's work."));
-        card.add(Box.createVerticalStrut(4));
-        card.add(UITheme.muted("Browsers are closed when the session starts, so ask the student to save first."));
+        card.add(UITheme.muted("Set the student and exam details."));
         card.add(Box.createVerticalStrut(24));
         card.add(labelled("Course code", courseField));
         card.add(Box.createVerticalStrut(14));
         card.add(labelled("Student ID", studentField));
         card.add(Box.createVerticalStrut(14));
-        card.add(labelled("Exam code - the invigilator's unique code for THIS exam (central monitoring)", codeField));
+        card.add(labelled("Exam code", codeField));
         card.add(Box.createVerticalStrut(10));
-        card.add(labelled("Invigilator PC IP - type the IP shown on the invigilator's monitor screen (empty = auto-detect)", centralField));
+        card.add(labelled("Invigilator PC IP", centralField));
         card.add(Box.createVerticalStrut(24));
         card.add(startBtn);
         card.add(Box.createVerticalStrut(10));

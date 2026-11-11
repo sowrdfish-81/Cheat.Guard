@@ -191,7 +191,7 @@ public final class UITheme {
         JLabel l = new JLabel(text);
         l.setFont(font);
         l.setForeground(colour);
-        l.setAlignmentX(Component.CENTER_ALIGNMENT);
+        l.setAlignmentX(Component.LEFT_ALIGNMENT);
         return l;
     }
 
