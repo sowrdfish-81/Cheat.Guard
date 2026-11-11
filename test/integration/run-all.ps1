@@ -8,7 +8,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $RepoRoot = (Resolve-Path $RepoRoot).Path
 if (-not $InstallerPath) {
-    $InstallerPath = Join-Path $RepoRoot 'dist\CheatGuardCentral-Setup.exe'
+    $InstallerPath = Join-Path $RepoRoot 'dist\Cheat.Guard-Setup.exe'
 }
 $outDir = Join-Path $RepoRoot 'integration-output'
 New-Item -ItemType Directory -Force $outDir | Out-Null

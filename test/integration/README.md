@@ -38,7 +38,7 @@ a cloud VM) that can be **rolled back to a snapshot** after every run:
 
 ```powershell
 # from a checkout of this repository on the VM
-./test/integration/run-all.ps1 -RepoRoot . -InstallerPath dist/CheatGuardCentral-Setup.exe
+./test/integration/run-all.ps1 -RepoRoot . -InstallerPath dist/Cheat.Guard-Setup.exe
 ```
 
 `run-all.ps1` runs the phases in order and stops at the first failure:
