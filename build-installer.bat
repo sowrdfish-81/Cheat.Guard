@@ -112,7 +112,7 @@ jpackage ^
 if errorlevel 1 (echo ERROR: jpackage failed.& exit /b 1)
 
 echo.
-move /y "dist\CheatGuardCentral-%APP_VERSION%.exe" "%SETUP_EXE%" >nul
+move /y "dist\Cheat.Guard-%APP_VERSION%.exe" "%SETUP_EXE%" >nul
 if exist "%SETUP_EXE%" (
   echo ============================================================
   echo  BUILD SUCCESSFUL
