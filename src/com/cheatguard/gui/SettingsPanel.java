@@ -304,7 +304,9 @@ public class SettingsPanel extends JPanel {
             boolean show = !q.isEmpty() && !shown.isEmpty() && search.isShowing();
             if (show) {
                 suggestions.setPopupSize(Math.max(search.getWidth(), 360), 150);
-                suggestions.show(search, 0, search.getHeight());
+                // Keep the suggestion list above the field so it never pushes
+                // the action row or the allowed-applications list downward.
+                suggestions.show(search, 0, -suggestions.getHeight());
             } else {
                 suggestions.setVisible(false);
             }
