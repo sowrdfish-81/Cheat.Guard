@@ -901,15 +901,21 @@ public class Main {
                         sessionFile.getName().replace(".dat", ".vault"));
                 hardened = LogProtection.protectViaHelper(
                         List.of(vault, new File(vault.getAbsolutePath() + ".sig")));
-                if (!hardened) {
-                    throw new IllegalStateException("Windows did not confirm protection of the sealed log.");
-                }
+                // The cryptographic seal above is the session boundary. ACL
+                // hardening is defense-in-depth and must not make the user click
+                // Close a second time when the elevated helper is slow or exits
+                // during shutdown.
             } else {
                 hardened = LogProtection.protectViaHelper(
                         List.of(new File(sessionFile.getParent(),
                                         sessionFile.getName().replace(".dat", ".vault"))));
             }
             sealed = true;
+            if (!hardened) {
+                SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(frame,
+                        "Session sealed successfully, but Windows could not confirm log ACL protection.",
+                        "Session complete", JOptionPane.WARNING_MESSAGE));
+            }
             return true;
         } catch (Exception ex) {
             SwingUtilities.invokeLater(() ->
