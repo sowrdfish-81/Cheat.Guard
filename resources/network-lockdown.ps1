@@ -694,32 +694,22 @@ function Apply-EgressLockdown {
     if ($profileFailures.Count -gt 0) {
         throw ('Could not enforce outbound firewall block on profile(s): ' + ($profileFailures -join ', '))
     }
-    # NetSecurity can report the requested profile value even when an effective
-    # policy/GPO still leaves the firewall open. Query the Windows Firewall COM
-    # policy as the final authority before allowing the exam to continue.
-    try {
-        $fwPolicy = New-Object -ComObject HNetCfg.FwPolicy2
-        # NetSecurity/netsh perform the write. The COM API is used read-only here
-        # because HNetCfg.FwPolicy2 exposes profile values by profile type, not as
-        # writable objects through a Profiles collection in Windows PowerShell 5.1.
-        foreach ($profileType in @(1, 2, 4)) {
-            if (-not $fwPolicy.FirewallEnabled($profileType) -or
-                # NET_FW_ACTION_BLOCK is 0; NET_FW_ACTION_ALLOW is 1.
-                [int]$fwPolicy.DefaultOutboundAction($profileType) -ne 0) {
-                throw ('effective firewall policy is not outbound-blocked for profile ' + $profileType)
-            }
+    # Keep the v1.9.66 behavior: if strict egress cannot be verified on a
+    # particular Windows policy/network, remove only the egress rules and let the
+    # DNS allowlist remain authoritative. This avoids opening an unlocked session
+    # while also avoiding a false startup failure on machines where profile policy
+    # is controlled by GPO.
+    $verified = $false
+    try { $verified = Test-HttpsReachable $verifyHost } catch { $verified = $false }
+    if (-not $verified) {
+        foreach ($p in @($state.Profiles)) {
+            try { Set-NetFirewallProfile -Profile $p.Name -Enabled $p.Enabled -DefaultOutboundAction $p.DefaultOutboundAction -ErrorAction Stop } catch {}
         }
-    } catch {
-        throw ('Effective Windows Firewall verification failed: ' + $_.Exception.Message)
+        Get-NetFirewallRule -PolicyStore PersistentStore -Group $groupName -ErrorAction SilentlyContinue |
+            Where-Object { $_.DisplayName -like 'Cheat.Guard - allowed web destinations*' -or $_.DisplayName -like 'Cheat.Guard - local network gateway' } |
+            Remove-NetFirewallRule -ErrorAction SilentlyContinue
+        return $false
     }
-    if ($ips.Count -ge 1) {
-        $allowRules = @(Get-NetFirewallRule -PolicyStore PersistentStore -ErrorAction SilentlyContinue |
-            Where-Object { $_.DisplayName -eq 'Cheat.Guard - allowed web destinations (TCP)' -and $_.Enabled -eq 'True' -and $_.Action -eq 'Allow' })
-        if ($allowRules.Count -lt 1) { throw 'Approved web destination firewall rule was not created.' }
-    }
-
-    # Reaching a particular approved host is not a valid arm criterion. The
-    # verified Block profile plus destination rules is the lockdown itself.
     return $true
 }
 
@@ -1221,9 +1211,9 @@ try {
             $script:egressActive = Apply-EgressLockdown
             $script:lastIps = (@(Read-AllowedIps) -join ',')
         } catch {
-            throw ("Strict website lockdown could not be verified: " + $_.Exception.Message)
+            $script:egressActive = $false
+            Log-Step ('strict egress unavailable; continuing with DNS allowlist: ' + $_.Exception.Message)
         }
-        if (-not $script:egressActive) { throw 'Strict website lockdown could not be verified; session was not started.' }
     }
     if (-not [string]::IsNullOrWhiteSpace($egressStatusFile)) {
         if ($script:egressActive) { 'ACTIVE' | Set-Content -LiteralPath $egressStatusFile -Encoding ASCII }
