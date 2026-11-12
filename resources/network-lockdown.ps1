@@ -1333,10 +1333,28 @@ try {
             Register-FailSafeTask
         }
         if ($script:egressActive -and (($loopCount % 4) -eq 0)) {
-            # An administrator flipping the outbound default back to Allow is a
-            # two-second bypass; re-assert it continuously while egress is armed.
-            foreach ($p in @(Get-NetFirewallProfile -ErrorAction SilentlyContinue)) {
-                try { if ($p.DefaultOutboundAction -ne 'Block') { Set-NetFirewallProfile -Profile $p.Name -DefaultOutboundAction Block -ErrorAction Stop } } catch {}
+            # Re-assert and verify the complete effective policy while the exam is
+            # live. A startup-only check leaves a bypass if policy/GPO changes after
+            # READY or if Windows replaces the active firewall profile.
+            try {
+                foreach ($p in @(Get-NetFirewallProfile -ErrorAction Stop)) {
+                    if (-not [bool]$p.Enabled -or [string]$p.DefaultOutboundAction -ne 'Block') {
+                        Set-NetFirewallProfile -Profile $p.Name -Enabled True -DefaultOutboundAction Block -ErrorAction Stop
+                    }
+                }
+                $liveFw = New-Object -ComObject HNetCfg.FwPolicy2
+                foreach ($profileType in @(1, 2, 4)) {
+                    if (-not $liveFw.FirewallEnabled($profileType) -or [int]$liveFw.DefaultOutboundAction($profileType) -ne 0) {
+                        throw ('effective outbound firewall policy changed for profile ' + $profileType)
+                    }
+                }
+                if ((@(Get-NetFirewallRule -PolicyStore PersistentStore -ErrorAction Stop |
+                    Where-Object { $_.DisplayName -eq 'Cheat.Guard - allowed web destinations (TCP)' -and $_.Enabled -eq 'True' -and $_.Action -eq 'Allow' })).Count -lt 1) {
+                    throw 'approved web destination rule disappeared'
+                }
+            } catch {
+                Log-Step ('LIVE LOCKDOWN LOST: ' + $_.Exception.Message)
+                throw
             }
         }
         if (($loopCount % 20) -eq 0) {
