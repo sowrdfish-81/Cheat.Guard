@@ -672,6 +672,15 @@ function Apply-EgressLockdown {
             -Action Allow -Profile Any -ErrorAction SilentlyContinue | Out-Null
     }
 
+    # Apply the same policy through the native firewall controller as well as
+    # NetSecurity. This avoids machines where a domain/GPO profile reports
+    # DefaultOutboundAction=Block but the effective firewall policy remains
+    # outbound-allow. The approved IP rules above remain the only web exception.
+    $native = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\netsh.exe') `
+        -ArgumentList 'advfirewall','set','allprofiles','firewallpolicy','blockinbound,blockoutbound' `
+        -WindowStyle Hidden -Wait -PassThru -ErrorAction Stop
+    if ($native.ExitCode -ne 0) { throw ('Native firewall outbound block failed with exit ' + $native.ExitCode) }
+
     $profileFailures = New-Object System.Collections.Generic.List[string]
     foreach ($p in @(Get-NetFirewallProfile -ErrorAction SilentlyContinue)) {
         try {
