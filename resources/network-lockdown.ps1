@@ -641,21 +641,24 @@ function Apply-EgressLockdown {
             -Action Allow -Profile Any -ErrorAction SilentlyContinue | Out-Null
     }
 
-    foreach ($p in @(Get-NetFirewallProfile -ErrorAction SilentlyContinue)) {
-        try { Set-NetFirewallProfile -Profile $p.Name -DefaultOutboundAction Block -ErrorAction Stop } catch {}
-    }
-
-    $verified = $false
-    try { $verified = Test-HttpsReachable $verifyHost } catch { $verified = $false }
-    if (-not $verified) {
-        foreach ($p in @($state.Profiles)) {
-            try { Set-NetFirewallProfile -Profile $p.Name -Enabled $p.Enabled -DefaultOutboundAction $p.DefaultOutboundAction -ErrorAction Stop } catch {}
+    # Do not trust the approved-host probe alone: verify that outbound traffic
+    # is actually blocked before the exam is allowed to continue.
+    $native = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\netsh.exe') `
+        -ArgumentList 'advfirewall','set','allprofiles','firewallpolicy','blockinbound,blockoutbound' `
+        -WindowStyle Hidden -Wait -PassThru -ErrorAction Stop
+    if ($native.ExitCode -ne 0) { throw ('native firewall policy failed with exit ' + $native.ExitCode) }
+    $profiles = @(Get-NetFirewallProfile -ErrorAction Stop)
+    if ($profiles.Count -lt 1) { throw 'no Windows Firewall profiles were returned' }
+    foreach ($p in $profiles) {
+        Set-NetFirewallProfile -Profile $p.Name -Enabled True -DefaultOutboundAction Block -ErrorAction Stop
+        $check = Get-NetFirewallProfile -Name $p.Name -ErrorAction Stop
+        if (-not [bool]$check.Enabled -or [string]$check.DefaultOutboundAction -ne 'Block') {
+            throw ('outbound policy was not blocked for profile ' + $p.Name)
         }
-        Get-NetFirewallRule -PolicyStore PersistentStore -Group $groupName -ErrorAction SilentlyContinue |
-            Where-Object { $_.DisplayName -like 'Cheat.Guard - allowed web destinations*' -or $_.DisplayName -like 'Cheat.Guard - local network gateway' } |
-            Remove-NetFirewallRule -ErrorAction SilentlyContinue
-        return $false
     }
+    $allowRules = @(Get-NetFirewallRule -PolicyStore PersistentStore -ErrorAction Stop |
+        Where-Object { $_.DisplayName -eq 'Cheat.Guard - allowed web destinations (TCP)' -and $_.Enabled -eq 'True' -and $_.Action -eq 'Allow' })
+    if ($allowRules.Count -lt 1) { throw 'approved web destination rule is missing' }
     return $true
 }
 
@@ -1156,9 +1159,8 @@ try {
         try {
             $script:egressActive = Apply-EgressLockdown
             $script:lastIps = (@(Read-AllowedIps) -join ',')
-        } catch {
-            $script:egressActive = $false
-        }
+        } catch { throw ("Strict website lockdown could not be verified: " + $_.Exception.Message) }
+        if (-not $script:egressActive) { throw 'Strict website lockdown could not be verified; session was not started.' }
     }
     if (-not [string]::IsNullOrWhiteSpace($egressStatusFile)) {
         if ($script:egressActive) { 'ACTIVE' | Set-Content -LiteralPath $egressStatusFile -Encoding ASCII }
