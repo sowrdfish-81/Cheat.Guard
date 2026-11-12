@@ -137,7 +137,7 @@ public final class DnsAllowlistServer implements Closeable {
         if (systemUpstreams != null) {
             for (String s : systemUpstreams) {
                 if (s == null || !s.matches("\\d{1,3}(\\.\\d{1,3}){3}")) continue;
-                if (BLOCKED_PUBLIC_RESOLVERS.contains(s)) continue;       // blocked on 53 for everyone
+                if (BLOCKED_PUBLIC_RESOLVERS.contains(s)) continue;
                 if (s.startsWith("45.90.28.") || s.startsWith("45.90.30.")) continue;
                 if (s.startsWith("127.") || s.equals("0.0.0.0")) continue;
                 if (!cleaned.contains(s)) cleaned.add(s);

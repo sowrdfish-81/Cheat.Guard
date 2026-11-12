@@ -109,6 +109,18 @@ final class WebsiteViolationReporter {
                 || h.equals("redirector.gvt1.com") || h.equals("clients2.google.com")
                 || h.equals("clients4.google.com") || h.equals("connectivitycheck.gstatic.com")) return true;
 
+        // Browser components, safe-browsing beacons, media prefetch and vendor
+        // telemetry. These are blocked correctly, but are not student navigation.
+        if (h.endsWith(".fbcdn.net") || h.endsWith(".gstatic.com")
+                || h.endsWith(".gvt2.com") || h.endsWith(".gvt3.com")
+                || h.endsWith(".googlevideo.com") || h.equals("dns.google")
+                || h.equals("one.one.one.one") || h.endsWith(".bugsnag.com")
+                || h.endsWith(".nel.cloudflare.com") || h.endsWith(".falais.com")
+                || h.endsWith(".urban-vpn.com")) return true;
+
+        if (h.equals("content-autofill.googleapis.com") || h.equals("accounts.google.com")
+                || h.equals("google.com.bd") || h.equals("anti-phishing-protection-toolbar.falais.com")) return true;
+
         // Windows/Edge/OneDrive telemetry and push-notification background services.
         if (h.equals("mobile.events.data.microsoft.com") || h.endsWith(".events.data.microsoft.com")
                 || h.equals("skydrive.wns.windows.com") || h.endsWith(".wns.windows.com")

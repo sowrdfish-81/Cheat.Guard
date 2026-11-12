@@ -173,9 +173,11 @@ public class CentralMonitorPanel extends JPanel {
                 String status = row < t.getModel().getRowCount()
                         ? String.valueOf(t.getModel().getValueAt(row, 3)) : "";
                 if ("CHEAT CONFIRMED".equals(status)) {
+                    c.setBackground(sel ? new Color(0x7A2934) : new Color(0x3A1820));
                     c.setForeground(new Color(0xFFB4BA));
                     c.setFont(UITheme.FONT_SECTION);
                 } else if ("SUSPICIOUS".equals(status)) {
+                    c.setBackground(sel ? new Color(0x72551A) : new Color(0x302512));
                     c.setForeground(new Color(0xFFF0A8));
                     c.setFont(UITheme.FONT_SECTION);
                 } else if ("CLEARED".equals(status)) {
@@ -700,6 +702,11 @@ public class CentralMonitorPanel extends JPanel {
             int ra = rank(a);
             int rb = rank(b);
             if (ra != rb) return Integer.compare(ra, rb);
+            if (ra == 1) {
+                int redsA = redFlagCount(a);
+                int redsB = redFlagCount(b);
+                if (redsA != redsB) return Integer.compare(redsB, redsA);
+            }
             return Long.compare(b.lastActivity, a.lastActivity);
         });
         studentModel.setRowCount(0);
@@ -731,6 +738,16 @@ public class CentralMonitorPanel extends JPanel {
         if ("CHEAT CONFIRMED".equals(rec.verdict)) return 0;
         if (rec.suspicious) return 1;
         return 2;
+    }
+
+    private static int redFlagCount(StudentRecord rec) {
+        synchronized (rec) {
+            int count = 0;
+            for (String[] event : rec.events) {
+                if (event.length > 1 && "RED FLAG".equals(event[1])) count++;
+            }
+            return count;
+        }
     }
 
     /** Remove only rows that are no longer actionable, never an active row. */

@@ -525,6 +525,9 @@ public final class StrictNetworkLockdown implements Closeable {
         if ("ACTIVE".equalsIgnoreCase(status)) {
             emitInfo("EGRESS_FIREWALL_ENABLED",
                     "Egress firewall active: web traffic is restricted to the servers of approved websites.");
+        } else if ("DNS_ONLY".equalsIgnoreCase(status)) {
+            emitInfo("DNS_ONLY_FILTER_ENABLED",
+                    "DNS-only website filter active; approved sites use the normal network path. Direct-IP bypass protection is not active.");
         } else {
             emitInfo("EGRESS_FIREWALL_FALLBACK",
                     "Egress firewall could not be verified on this network; DNS-level website blocking is active.");
