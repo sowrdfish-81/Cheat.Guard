@@ -644,8 +644,16 @@ function Test-HttpsReachable([string]$Target) {
 # and the session continues in DNS-only mode rather than risking a dead network.
 function Apply-EgressLockdown {
     $ips = @(Read-AllowedIps)
-    if ($ips.Count -lt 1) { return $false }
-    Set-AllowedDestinationRules $ips
+    if ($ips.Count -ge 1) {
+        Set-AllowedDestinationRules $ips
+    } else {
+        # An empty website allowlist is a valid strict policy: no web destination
+        # is approved. Do not fall back to DNS-only mode, because raw IPs and
+        # alternate resolvers would bypass the allowlist.
+        Get-NetFirewallRule -PolicyStore PersistentStore -Group $groupName -ErrorAction SilentlyContinue |
+            Where-Object { $_.DisplayName -like 'Cheat.Guard - allowed web destinations*' } |
+            Remove-NetFirewallRule -ErrorAction SilentlyContinue
+    }
     Add-DiscordEgressAllowRules
 
     $gateways = @()
@@ -665,7 +673,11 @@ function Apply-EgressLockdown {
     }
 
     $verified = $false
-    try { $verified = Test-HttpsReachable $verifyHost } catch { $verified = $false }
+    if ($ips.Count -lt 1) {
+        $verified = $true
+    } else {
+        try { $verified = Test-HttpsReachable $verifyHost } catch { $verified = $false }
+    }
     if (-not $verified) {
         foreach ($p in @($state.Profiles)) {
             try { Set-NetFirewallProfile -Profile $p.Name -Enabled $p.Enabled -DefaultOutboundAction $p.DefaultOutboundAction -ErrorAction Stop } catch {}
