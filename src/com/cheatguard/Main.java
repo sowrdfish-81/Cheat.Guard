@@ -50,7 +50,7 @@ import java.util.concurrent.TimeUnit;
 public class Main {
 
     /** Visible in the window title, so "which build am I running" is never a guess. */
-    private static final String BUILD_STAMP = "v1.9.98";
+    private static final String BUILD_STAMP = "v1.9.99";
 
     private static final InstanceGuard INSTANCE_GUARD = new InstanceGuard();
     private static final String CARD_FIRST_RUN = "FIRST_RUN";
@@ -979,7 +979,7 @@ public class Main {
             frame.dispose();
             System.exit(0);
         }
-        char[] entered = promptAdminPassword(activeSession == null ? "Exit Cheat.Guard" : "End session and exit");
+        char[] entered = promptAdminPassword(activeSession == null ? "Exit Cheat.Guard" : "End session and return to home");
         if (entered == null) return;
         if (entered.length == 0) {
             Arrays.fill(entered, '\0');
@@ -1014,8 +1014,11 @@ public class Main {
                     final boolean done = sealed;
                     SwingUtilities.invokeLater(() -> {
                         if (done) {
-                            frame.dispose();
-                            System.exit(0);
+                            // Ending an exam must return to the main menu. The
+                            // application should close only when Exit is pressed
+                            // from the home screen, not as a side effect of sealing.
+                            replaceCard(CARD_HOME, buildHomeCard());
+                            showCard(CARD_HOME);
                         }
                         sessionBusy = false;
                     });
