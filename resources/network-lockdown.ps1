@@ -1164,13 +1164,14 @@ try {
     Add-TunnelPortBlocks
     $script:lastIps = ''
     $script:egressActive = $false
-    if ((-not [string]::IsNullOrWhiteSpace($allowedIpFile)) -and (-not [string]::IsNullOrWhiteSpace($verifyHost))) {
-        try {
-            $script:egressActive = Apply-EgressLockdown
-            $script:lastIps = (@(Read-AllowedIps) -join ',')
-        } catch { throw ("Strict website lockdown could not be verified: " + $_.Exception.Message) }
-        if (-not $script:egressActive) { throw 'Strict website lockdown could not be verified; session was not started.' }
+    if ([string]::IsNullOrWhiteSpace($allowedIpFile) -or [string]::IsNullOrWhiteSpace($verifyHost)) {
+        throw 'Strict website lockdown configuration is incomplete; session was not started.'
     }
+    try {
+        $script:egressActive = Apply-EgressLockdown
+        $script:lastIps = (@(Read-AllowedIps) -join ',')
+    } catch { throw ("Strict website lockdown could not be verified: " + $_.Exception.Message) }
+    if (-not $script:egressActive) { throw 'Strict website lockdown could not be verified; session was not started.' }
     if (-not [string]::IsNullOrWhiteSpace($egressStatusFile)) {
         if ($script:egressActive) { 'ACTIVE' | Set-Content -LiteralPath $egressStatusFile -Encoding ASCII }
         else { 'FALLBACK' | Set-Content -LiteralPath $egressStatusFile -Encoding ASCII }

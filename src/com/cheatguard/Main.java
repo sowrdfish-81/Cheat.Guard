@@ -50,7 +50,7 @@ import java.util.concurrent.TimeUnit;
 public class Main {
 
     /** Visible in the window title, so "which build am I running" is never a guess. */
-    private static final String BUILD_STAMP = "v1.9.105";
+    private static final String BUILD_STAMP = "v1.9.106";
 
     private static final InstanceGuard INSTANCE_GUARD = new InstanceGuard();
     private static final String CARD_FIRST_RUN = "FIRST_RUN";
