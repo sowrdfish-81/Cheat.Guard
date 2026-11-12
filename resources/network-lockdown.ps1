@@ -467,11 +467,11 @@ function Set-FileAccessLocks([string]$ListFile, [string]$Sid) {
 
 function Test-DenyPresent([string]$Path, [string]$Sid) {
     try {
-        $out = icacls "$Path" 2>$null
-        if ($LASTEXITCODE -ne 0) { return $false }
-        foreach ($line in @($out)) {
-            if ($null -eq $line) { continue }
-            if ($line.Contains($Sid) -and $line -match '\(DENY\)') { return $true }
+        $acl = Get-Acl -LiteralPath $Path -ErrorAction Stop
+        foreach ($rule in @($acl.Access)) {
+            try { $identity = $rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value }
+            catch { $identity = [string]$rule.IdentityReference }
+            if ($identity -eq $Sid -and $rule.AccessControlType -eq [System.Security.AccessControl.AccessControlType]::Deny) { return $true }
         }
     } catch {}
     return $false
