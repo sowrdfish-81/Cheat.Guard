@@ -32,7 +32,7 @@ public final class StrictNetworkLockdown implements Closeable {
     private final ViolationListener listener;
     private DnsAllowlistServer dnsServer;
     private final File networkDir = AppPaths.getNetworkDirectory();
-    private final File helper = new File(networkDir, "network-lockdown-v1.9.91.ps1");
+    private final File helper = new File(networkDir, "network-lockdown-v1.9.92.ps1");
     private final File config = new File(networkDir, "active-config.json");
     private final File ready = new File(networkDir, "ready.marker");
     private final File stop = new File(networkDir, "stop.marker");
@@ -310,7 +310,7 @@ public final class StrictNetworkLockdown implements Closeable {
         File dir = AppPaths.getNetworkDirectory();
         File state = new File(dir, "firewall_state.json");
         File cfg = new File(dir, "active-config.json");
-        File helper = new File(dir, "network-lockdown-v1.9.91.ps1");
+        File helper = new File(dir, "network-lockdown-v1.9.92.ps1");
         if (!state.exists() || !cfg.exists()) return true;
         try {
             // Always use the helper bundled with this version for stale-session recovery.
@@ -352,7 +352,7 @@ public final class StrictNetworkLockdown implements Closeable {
             String copyDetail = "unchanged";
             try {
                 File dir = AppPaths.getNetworkDirectory();
-                File helper = new File(dir, "network-lockdown-v1.9.91.ps1");
+                File helper = new File(dir, "network-lockdown-v1.9.92.ps1");
                 byte[] bundled;
                 try (InputStream in = StrictNetworkLockdown.class.getResourceAsStream("/network-lockdown.ps1")) {
                     if (in == null) { AppLog.warn("Fail-safe helper resource missing"); }
@@ -368,7 +368,7 @@ public final class StrictNetworkLockdown implements Closeable {
                             // REPLACE_EXISTING has failed with a bare-path access
                             // error on hardened/locked dirs; write a sibling temp
                             // file and move over it instead.
-                            File staged = new File(dir, "network-lockdown-v1.9.91.ps1.new");
+                            File staged = new File(dir, "network-lockdown-v1.9.92.ps1.new");
                             try {
                                 Files.write(staged.toPath(), bundled);
                                 try {
@@ -397,7 +397,7 @@ public final class StrictNetworkLockdown implements Closeable {
             try {
                 String script = "$d = $env:ProgramData + '/CheatGuard/network'; "
                         + "$ps = $env:SystemRoot + '/System32/WindowsPowerShell/v1.0/powershell.exe'; "
-                        + "$s = $d + '/network-lockdown-v1.9.91.ps1'; "
+                        + "$s = $d + '/network-lockdown-v1.9.92.ps1'; "
                         + "if (-not (Test-Path $s)) { exit 1 }; "
                         + "$action = New-ScheduledTaskAction -Execute $ps -Argument ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ''' + $s + ''' -FailSafeCheck'); "
                         + "$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) "

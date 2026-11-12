@@ -754,7 +754,7 @@ function Clear-AllLocalDenies {
 function Register-FailSafeTask {
     try {
         $ps = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-        $script = Join-Path $PSScriptRoot 'network-lockdown-v1.9.91.ps1'
+        $script = Join-Path $PSScriptRoot 'network-lockdown-v1.9.92.ps1'
         $action = New-ScheduledTaskAction -Execute $ps `
             -Argument ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $script + '" -FailSafeCheck')
         $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
@@ -981,7 +981,7 @@ if ($FailSafeCheck) {
         # session's restore. Fail-safe ticks skip on each other's PID only.
         $appAlive = @(Get-Process -Name 'Cheat.Guard','CheatGuardCentral','CheatGuard' -ErrorAction SilentlyContinue).Count -gt 0
         $helperAlive = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
-            Where-Object { $_.CommandLine -match 'network-lockdown\.ps1' `
+            Where-Object { $_.CommandLine -match 'network-lockdown(?:-v[0-9.]+)?\.ps1' `
                            -and $_.ProcessId -ne $PID }).Count -gt 0
         if ($appAlive -or $helperAlive) {
             try { ('[' + (Get-Date -Format s) + '] FailSafe: live session detected (app=' +
@@ -1039,7 +1039,7 @@ try {
     # launcher is still finishing, and killing it made the app report a failed
     # launch and roll back an otherwise healthy start.
     Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
-        Where-Object { $_.CommandLine -match 'network-lockdown\.ps1' `
+        Where-Object { $_.CommandLine -match 'network-lockdown(?:-v[0-9.]+)?\.ps1' `
                        -and $_.CommandLine -match '-Config' `
                        -and $_.CommandLine -notmatch '-Command' `
                        -and $_.ProcessId -ne $PID } |
