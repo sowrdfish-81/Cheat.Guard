@@ -8,7 +8,7 @@
 # lockdown must be ended through the app's own password-gated controls, or this
 # one-click tool would be the easiest bypass on the machine.
 
-$app = Get-Process -Name 'CheatGuardCentral','CheatGuard' -ErrorAction SilentlyContinue
+$app = Get-Process -Name 'Cheat.Guard','CheatGuardCentral','CheatGuard' -ErrorAction SilentlyContinue
 if ($app) {
     Write-Host ''
     Write-Host '  Cheat.Guard is currently RUNNING.' -ForegroundColor Yellow

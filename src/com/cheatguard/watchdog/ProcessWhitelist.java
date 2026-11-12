@@ -16,7 +16,7 @@ public class ProcessWhitelist {
      * unapproved application unless an administrator adds it to the allowlist.
      */
     private static final Set<String> ALWAYS_ALLOWED = new HashSet<>(Arrays.asList(
-            "cheatguard.exe", "explorer.exe"));
+            "cheatguard.exe", "cheatguardcentral.exe", "cheat.guard.exe", "explorer.exe"));
 
     private static final Set<String> BROWSERS = new HashSet<>(Arrays.asList(
             "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe",

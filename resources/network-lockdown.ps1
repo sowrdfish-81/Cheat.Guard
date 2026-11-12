@@ -959,7 +959,7 @@ if ($FailSafeCheck) {
         # readable from this (SYSTEM) context, so a "-Config" filter here once
         # made a live, hung helper invisible and the fail-safe raced a live
         # session's restore. Fail-safe ticks skip on each other's PID only.
-        $appAlive = @(Get-Process -Name 'CheatGuardCentral','CheatGuard' -ErrorAction SilentlyContinue).Count -gt 0
+        $appAlive = @(Get-Process -Name 'Cheat.Guard','CheatGuardCentral','CheatGuard' -ErrorAction SilentlyContinue).Count -gt 0
         $helperAlive = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
             Where-Object { $_.CommandLine -match 'network-lockdown\.ps1' `
                            -and $_.ProcessId -ne $PID }).Count -gt 0
