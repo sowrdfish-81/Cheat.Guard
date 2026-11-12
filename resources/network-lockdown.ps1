@@ -694,6 +694,20 @@ function Apply-EgressLockdown {
     if ($profileFailures.Count -gt 0) {
         throw ('Could not enforce outbound firewall block on profile(s): ' + ($profileFailures -join ', '))
     }
+    # NetSecurity can report the requested profile value even when an effective
+    # policy/GPO still leaves the firewall open. Query the Windows Firewall COM
+    # policy as the final authority before allowing the exam to continue.
+    try {
+        $fwPolicy = New-Object -ComObject HNetCfg.FwPolicy2
+        foreach ($profileType in @(1, 2, 4)) {
+            if (-not $fwPolicy.FirewallEnabled($profileType) -or
+                [int]$fwPolicy.DefaultOutboundAction($profileType) -ne 0) {
+                throw ('effective firewall policy is not outbound-blocked for profile ' + $profileType)
+            }
+        }
+    } catch {
+        throw ('Effective Windows Firewall verification failed: ' + $_.Exception.Message)
+    }
     if ($ips.Count -ge 1) {
         $allowRules = @(Get-NetFirewallRule -PolicyStore PersistentStore -ErrorAction SilentlyContinue |
             Where-Object { $_.DisplayName -eq 'Cheat.Guard - allowed web destinations (TCP)' -and $_.Enabled -eq 'True' -and $_.Action -eq 'Allow' })
