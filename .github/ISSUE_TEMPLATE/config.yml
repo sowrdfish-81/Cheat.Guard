@@ -5,4 +5,4 @@ contact_links:
     about: Report exploitable issues privately (lockdown bypass, vault crypto, TLS/auth). Never in a public issue.
   - name: Usage question / deployment help
     url: https://github.com/sowrdfish-81/CheatGuard-Central/discussions
-    about: Ask how to deploy or run CheatGuard Central in your exam hall.
+    about: Ask how to deploy or run Cheat.Guard in your exam hall.

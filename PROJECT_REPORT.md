@@ -1,9 +1,9 @@
-# Cheat.Guard — v1.9.0 Project Report
+# Cheat.Guard — v1.9.138 Project Report
 
 ## Scope
 
 This report records the current implementation, security hardening,
-verification status, and release process for Cheat.Guard v1.9.0. It
+verification status, and release process for the current Cheat.Guard v1.9.138 release. It
 describes only what is in the repository now.
 
 ## Product summary

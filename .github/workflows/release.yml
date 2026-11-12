@@ -100,9 +100,9 @@ jobs:
               Sort-Object FullName -Descending | Select-Object -First 1
             if (-not $signtool) { throw "signtool.exe not found in the Windows SDK" }
             & $signtool.FullName sign /f $certPath /p $env:WINDOWS_CERTIFICATE_PASSWORD `
-              /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 'dist\CheatGuardCentral-Setup.exe'
+              /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 'dist\Cheat.Guard-Setup.exe'
             if ($LASTEXITCODE -ne 0) { throw "signtool sign failed with exit code $LASTEXITCODE" }
-            & $signtool.FullName verify /pa /all 'dist\CheatGuardCentral-Setup.exe'
+            & $signtool.FullName verify /pa /all 'dist\Cheat.Guard-Setup.exe'
             if ($LASTEXITCODE -ne 0) { throw "signtool verify failed with exit code $LASTEXITCODE" }
             "result" + "=signed" | Set-Content $env:GITHUB_OUTPUT
             Write-Host "Installer signed (SHA-256, RFC 3161 timestamp)."
@@ -117,8 +117,8 @@ jobs:
       - name: Regenerate checksum AFTER signing and verify it
         shell: pwsh
         run: |
-          $exe = 'dist/CheatGuardCentral-Setup.exe'
-          $sum = 'dist/CheatGuardCentral-Setup.exe.sha256'
+          $exe = 'dist/Cheat.Guard-Setup.exe'
+          $sum = 'dist/Cheat.Guard-Setup.exe.sha256'
           if (-not (Test-Path $exe)) { throw "Installer is missing" }
           $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLowerInvariant()
           [IO.File]::WriteAllText($sum, ($hash + '  ' + (Split-Path $exe -Leaf) + [Environment]::NewLine),
@@ -130,10 +130,10 @@ jobs:
       - name: Upload release artifacts for inspection
         uses: actions/upload-artifact@v4
         with:
-          name: CheatGuardCentral-Setup-release
+          name: Cheat.Guard-Setup-release
           path: |
-            dist/CheatGuardCentral-Setup.exe
-            dist/CheatGuardCentral-Setup.exe.sha256
+            dist/Cheat.Guard-Setup.exe
+            dist/Cheat.Guard-Setup.exe.sha256
           if-no-files-found: error
 
       - name: Publish GitHub release
@@ -144,8 +144,8 @@ jobs:
           $tag = $env:GITHUB_REF_NAME
           $notes = "release-notes/$tag.md"
           $ghArgs = @('release', 'create', $tag,
-            'dist/CheatGuardCentral-Setup.exe', 'dist/CheatGuardCentral-Setup.exe.sha256',
-            '--title', "CheatGuard Central $tag",
+            'dist/Cheat.Guard-Setup.exe', 'dist/Cheat.Guard-Setup.exe.sha256',
+            '--title', "Cheat.Guard $tag",
             '--target', $env:GITHUB_SHA)
           if (Test-Path $notes) {
             $ghArgs += @('--notes-file', $notes)

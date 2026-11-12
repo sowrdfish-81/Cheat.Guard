@@ -230,7 +230,7 @@ public final class UpdateChecker {
             URI uri = installerUrl.toURI();
             String path = uri.getPath();
             if (path == null || !(path.endsWith("/" + INSTALLER_NAME)
-                    || path.matches(".*/CheatGuardCentral-Setup-v\\d+(?:\\.\\d+)*\\.exe"))) {
+                    || path.matches(".*/(?:Cheat\\.Guard|CheatGuardCentral)-Setup-v\\d+(?:\\.\\d+)*\\.exe"))) {
                 throw new IOException("Installer URL does not name the expected asset");
             }
             URI companion = new URI(uri.getScheme(), uri.getUserInfo(), uri.getHost(), uri.getPort(),

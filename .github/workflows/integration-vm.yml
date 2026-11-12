@@ -89,7 +89,7 @@ jobs:
       - name: Run full integration harness (install, startup, lockdown, restore, uninstall)
         shell: pwsh
         run: |
-          ./test/integration/run-all.ps1 -RepoRoot . -InstallerPath dist/CheatGuardCentral-Setup.exe
+          ./test/integration/run-all.ps1 -RepoRoot . -InstallerPath dist/Cheat.Guard-Setup.exe
           if ($LASTEXITCODE -ne 0) { throw "Integration harness failed" }
 
       - name: Upload integration test output

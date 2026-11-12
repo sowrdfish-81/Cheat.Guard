@@ -94,8 +94,8 @@ jobs:
       - name: Verify installer checksum
         shell: pwsh
         run: |
-          $exe = 'dist/CheatGuardCentral-Setup.exe'
-          $sum = 'dist/CheatGuardCentral-Setup.exe.sha256'
+          $exe = 'dist/Cheat.Guard-Setup.exe'
+          $sum = 'dist/Cheat.Guard-Setup.exe.sha256'
           if (-not (Test-Path $exe)) { throw "Installer was not produced" }
           if (-not (Test-Path $sum)) { throw "Checksum file was not produced" }
           $expected = (Get-Content $sum -Raw).Trim()
@@ -108,8 +108,8 @@ jobs:
       - name: Upload installer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CheatGuardCentral-Setup
+          name: Cheat.Guard-Setup
           path: |
-            dist/CheatGuardCentral-Setup.exe
-            dist/CheatGuardCentral-Setup.exe.sha256
+            dist/Cheat.Guard-Setup.exe
+            dist/Cheat.Guard-Setup.exe.sha256
           if-no-files-found: error

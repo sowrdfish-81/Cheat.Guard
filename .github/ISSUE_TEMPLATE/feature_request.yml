@@ -1,5 +1,5 @@
 name: Feature request
-description: Propose an improvement to CheatGuard Central.
+description: Propose an improvement to Cheat.Guard.
 labels: ["enhancement"]
 body:
   - type: markdown
