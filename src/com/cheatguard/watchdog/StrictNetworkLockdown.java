@@ -603,10 +603,15 @@ public final class StrictNetworkLockdown implements Closeable {
                     "Searches"}) {
                 File f = new File(profile, name);
                 if (!f.isDirectory()) continue;
-                // Avoid one recursive ACL operation on a large profile root.
-                // Lock its children instead so icacls does not time out on a
-                // cloud/large Documents tree while the contents remain denied.
-                lockChildrenExceptExam(f, examFolder, out, 0);
+                // One inheritable deny on the standard profile root is much
+                // faster than issuing an ACL process for every child. Only the
+                // ancestor chain containing the exam folder needs child-level
+                // treatment so the exam folder remains usable.
+                if (isAncestorOrSelf(f, examFolder)) {
+                    lockChildrenExceptExam(f, examFolder, out, 0);
+                } else {
+                    out.add(f.getAbsolutePath());
+                }
             }
         }
         if (desktop != null && desktop.isDirectory()) {
