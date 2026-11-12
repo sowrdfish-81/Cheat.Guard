@@ -450,15 +450,13 @@ function Set-FileAccessLocks([string]$ListFile, [string]$Sid) {
     foreach ($line in @(Get-Content -LiteralPath $ListFile -Encoding UTF8 -ErrorAction SilentlyContinue)) {
         $p = $line.Trim()
         if (-not $p -or -not (Test-Path -LiteralPath $p)) { continue }
-        # Bounded deny: on cloud-synced folders (OneDrive, Google Drive) the
-        # inheritable ACE can take minutes to propagate, and some cloud
-        # filesystems reject the deny outright (exit 87). Either way the arm
-        # sequence must survive: skip the path and keep going.
+        # A failed deny is a security failure. Do not report a live exam while
+        # Explorer can still open a skipped folder.
         $code = Invoke-AclTool icacls ('"' + $p + '" /deny "*' + $Sid + ':(OI)(CI)(RX,D)"') 30
-        if ($code -eq 0) {
+        if ($code -eq 0 -and (Test-DenyPresent $p $Sid)) {
             $locked.Add($p)
         } else {
-            Log-Step ("file wall: skipped '" + $p + "' (icacls exit " + $code + ")")
+            throw ("file wall failed for '" + $p + "' (icacls exit " + $code + ")")
         }
     }
     return $locked
@@ -668,8 +666,16 @@ function Apply-EgressLockdown {
             -Action Allow -Profile Any -ErrorAction SilentlyContinue | Out-Null
     }
 
+    $profileFailures = New-Object System.Collections.Generic.List[string]
     foreach ($p in @(Get-NetFirewallProfile -ErrorAction SilentlyContinue)) {
-        try { Set-NetFirewallProfile -Profile $p.Name -DefaultOutboundAction Block -ErrorAction Stop } catch {}
+        try {
+            Set-NetFirewallProfile -Profile $p.Name -DefaultOutboundAction Block -ErrorAction Stop
+            $check = Get-NetFirewallProfile -Name $p.Name -ErrorAction Stop
+            if ([string]$check.DefaultOutboundAction -ne 'Block') { $profileFailures.Add($p.Name) }
+        } catch { $profileFailures.Add($p.Name) }
+    }
+    if ($profileFailures.Count -gt 0) {
+        throw ('Could not enforce outbound firewall block on profile(s): ' + ($profileFailures -join ', '))
     }
 
     $verified = $false
@@ -1188,8 +1194,9 @@ try {
             $script:egressActive = Apply-EgressLockdown
             $script:lastIps = (@(Read-AllowedIps) -join ',')
         } catch {
-            $script:egressActive = $false
+            throw ("Strict website lockdown could not be verified: " + $_.Exception.Message)
         }
+        if (-not $script:egressActive) { throw 'Strict website lockdown could not be verified; session was not started.' }
     }
     if (-not [string]::IsNullOrWhiteSpace($egressStatusFile)) {
         if ($script:egressActive) { 'ACTIVE' | Set-Content -LiteralPath $egressStatusFile -Encoding ASCII }
@@ -1200,7 +1207,8 @@ try {
     Log-Step 'firewall rules armed; applying file walls'
     $script:fileLocks = @()
     if ((-not [string]::IsNullOrWhiteSpace($lockPathsFile)) -and (Test-Path -LiteralPath $lockPathsFile)) {
-        try { $script:fileLocks = @(Set-FileAccessLocks $lockPathsFile $cfg.userSid) } catch { $script:fileLocks = @() }
+        try { $script:fileLocks = @(Set-FileAccessLocks $lockPathsFile $cfg.userSid) }
+        catch { throw ("File walls could not be applied completely: " + $_.Exception.Message) }
     }
     # The hosts file is a direct DNS bypass: mapping any blocked name to a raw IP
     # makes the local filter irrelevant for that name. Deny writes for the student's
@@ -1219,7 +1227,7 @@ try {
     Log-Step ('file walls applied: ' + $script:fileLocks.Count + ' path(s) locked')
     if (-not [string]::IsNullOrWhiteSpace($lockStatusFile)) {
         if ($script:fileLocks.Count -ge 1) { 'ACTIVE' | Set-Content -LiteralPath $lockStatusFile -Encoding ASCII }
-        else { 'SKIPPED' | Set-Content -LiteralPath $lockStatusFile -Encoding ASCII }
+        else { throw 'File walls produced no verified locks.' }
     }
 
     # Force browsers onto the system resolver, then point the system resolver at the
