@@ -603,11 +603,10 @@ public final class StrictNetworkLockdown implements Closeable {
                     "Searches"}) {
                 File f = new File(profile, name);
                 if (!f.isDirectory()) continue;
-                if (isAncestorOrSelf(f, examFolder)) {
-                    lockChildrenExceptExam(f, examFolder, out, 0);
-                } else {
-                    out.add(f.getAbsolutePath());
-                }
+                // Avoid one recursive ACL operation on a large profile root.
+                // Lock its children instead so icacls does not time out on a
+                // cloud/large Documents tree while the contents remain denied.
+                lockChildrenExceptExam(f, examFolder, out, 0);
             }
         }
         if (desktop != null && desktop.isDirectory()) {
@@ -810,7 +809,18 @@ public final class StrictNetworkLockdown implements Closeable {
     }
 
     private String readQuietly(File f) {
-        try { return Files.readString(f.toPath()); } catch (Exception e) { return e.getMessage(); }
+        try {
+            String value = Files.readString(f.toPath(), StandardCharsets.UTF_8).trim();
+            if (!value.isEmpty()) return value;
+        } catch (Exception ignored) {
+        }
+        File stepLog = new File(networkDir, "helper-log.txt");
+        try {
+            String value = Files.readString(stepLog.toPath(), StandardCharsets.UTF_8).trim();
+            if (!value.isEmpty()) return value.substring(Math.max(0, value.length() - 1800));
+        } catch (Exception ignored) {
+        }
+        return "The elevated helper stopped before it reported a reason. See " + stepLog.getAbsolutePath() + ".";
     }
 
     private String friendlyError(Exception e) {
