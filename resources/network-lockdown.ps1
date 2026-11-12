@@ -452,7 +452,10 @@ function Set-FileAccessLocks([string]$ListFile, [string]$Sid) {
         if (-not $p -or -not (Test-Path -LiteralPath $p)) { continue }
         # A failed deny is a security failure. Do not report a live exam while
         # Explorer can still open a skipped folder.
-        $code = Invoke-AclTool icacls ('"' + $p + '" /deny "*' + $Sid + ':(OI)(CI)(RX,D)"') 30
+        # Applying an inheritable deny to a large workspace can legitimately
+        # take longer than the old 30-second arm timeout. Do not turn a slow
+        # ACL operation into a false session-start failure.
+        $code = Invoke-AclTool icacls ('"' + $p + '" /deny "*' + $Sid + ':(OI)(CI)(RX,D)"') 120
         if ($code -eq 0 -and (Test-DenyPresent $p $Sid)) {
             $locked.Add($p)
         } else {
