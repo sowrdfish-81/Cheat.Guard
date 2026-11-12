@@ -682,15 +682,22 @@ function Apply-EgressLockdown {
     if ($native.ExitCode -ne 0) { throw ('Native firewall outbound block failed with exit ' + $native.ExitCode) }
 
     $profileFailures = New-Object System.Collections.Generic.List[string]
-    foreach ($p in @(Get-NetFirewallProfile -ErrorAction SilentlyContinue)) {
+    $profiles = @(Get-NetFirewallProfile -ErrorAction SilentlyContinue)
+    if ($profiles.Count -lt 1) { throw 'Windows Firewall profiles could not be queried.' }
+    foreach ($p in $profiles) {
         try {
             Set-NetFirewallProfile -Profile $p.Name -DefaultOutboundAction Block -ErrorAction Stop
             $check = Get-NetFirewallProfile -Name $p.Name -ErrorAction Stop
-            if ([string]$check.DefaultOutboundAction -ne 'Block') { $profileFailures.Add($p.Name) }
+            if (-not [bool]$check.Enabled -or [string]$check.DefaultOutboundAction -ne 'Block') { $profileFailures.Add($p.Name) }
         } catch { $profileFailures.Add($p.Name) }
     }
     if ($profileFailures.Count -gt 0) {
         throw ('Could not enforce outbound firewall block on profile(s): ' + ($profileFailures -join ', '))
+    }
+    if ($ips.Count -ge 1) {
+        $allowRules = @(Get-NetFirewallRule -PolicyStore PersistentStore -ErrorAction SilentlyContinue |
+            Where-Object { $_.DisplayName -eq 'Cheat.Guard - allowed web destinations (TCP)' -and $_.Enabled -eq 'True' -and $_.Action -eq 'Allow' })
+        if ($allowRules.Count -lt 1) { throw 'Approved web destination firewall rule was not created.' }
     }
 
     # Reaching a particular approved host is not a valid arm criterion. The
