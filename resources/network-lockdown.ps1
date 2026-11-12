@@ -699,8 +699,15 @@ function Apply-EgressLockdown {
     # policy as the final authority before allowing the exam to continue.
     try {
         $fwPolicy = New-Object -ComObject HNetCfg.FwPolicy2
+        # Write the effective COM policy as well as NetSecurity/netsh. Some
+        # Windows builds report the cmdlet value but keep the COM profile open.
+        foreach ($profile in @($fwPolicy.Profiles)) {
+            $profile.FirewallEnabled = $true
+            $profile.DefaultOutboundAction = 0 # NET_FW_ACTION_BLOCK
+        }
         foreach ($profileType in @(1, 2, 4)) {
             if (-not $fwPolicy.FirewallEnabled($profileType) -or
+                # NET_FW_ACTION_BLOCK is 0; NET_FW_ACTION_ALLOW is 1.
                 [int]$fwPolicy.DefaultOutboundAction($profileType) -ne 0) {
                 throw ('effective firewall policy is not outbound-blocked for profile ' + $profileType)
             }
