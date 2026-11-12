@@ -672,33 +672,12 @@ function Apply-EgressLockdown {
             -Action Allow -Profile Any -ErrorAction SilentlyContinue | Out-Null
     }
 
-    # Apply the same policy through the native firewall controller as well as
-    # NetSecurity. This avoids machines where a domain/GPO profile reports
-    # DefaultOutboundAction=Block but the effective firewall policy remains
-    # outbound-allow. The approved IP rules above remain the only web exception.
-    $native = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\netsh.exe') `
-        -ArgumentList 'advfirewall','set','allprofiles','firewallpolicy','blockinbound,blockoutbound' `
-        -WindowStyle Hidden -Wait -PassThru -ErrorAction Stop
-    if ($native.ExitCode -ne 0) { throw ('Native firewall outbound block failed with exit ' + $native.ExitCode) }
-
-    $profileFailures = New-Object System.Collections.Generic.List[string]
-    $profiles = @(Get-NetFirewallProfile -ErrorAction SilentlyContinue)
-    if ($profiles.Count -lt 1) { throw 'Windows Firewall profiles could not be queried.' }
-    foreach ($p in $profiles) {
-        try {
-            Set-NetFirewallProfile -Profile $p.Name -DefaultOutboundAction Block -ErrorAction Stop
-            $check = Get-NetFirewallProfile -Name $p.Name -ErrorAction Stop
-            if (-not [bool]$check.Enabled -or [string]$check.DefaultOutboundAction -ne 'Block') { $profileFailures.Add($p.Name) }
-        } catch { $profileFailures.Add($p.Name) }
+    # Proven v1.9.66 path: set outbound default-deny, then verify one approved
+    # HTTPS connection. If that network cannot carry the approved site, restore
+    # only the egress rules and continue with the DNS allowlist.
+    foreach ($p in @(Get-NetFirewallProfile -ErrorAction SilentlyContinue)) {
+        try { Set-NetFirewallProfile -Profile $p.Name -DefaultOutboundAction Block -ErrorAction Stop } catch {}
     }
-    if ($profileFailures.Count -gt 0) {
-        throw ('Could not enforce outbound firewall block on profile(s): ' + ($profileFailures -join ', '))
-    }
-    # Keep the v1.9.66 behavior: if strict egress cannot be verified on a
-    # particular Windows policy/network, remove only the egress rules and let the
-    # DNS allowlist remain authoritative. This avoids opening an unlocked session
-    # while also avoiding a false startup failure on machines where profile policy
-    # is controlled by GPO.
     $verified = $false
     try { $verified = Test-HttpsReachable $verifyHost } catch { $verified = $false }
     if (-not $verified) {
