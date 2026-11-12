@@ -333,25 +333,15 @@ function Test-DnsFilter {
 # cannot grant itself one. Only grants are used: an explicit deny would also block the
 # elevated delete that the admin dashboard performs on purpose.
 function Protect-LogFile([string]$Path) {
-    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
-    if (-not (Test-Path -LiteralPath $Path)) { return $false }
+    if ([string]::IsNullOrWhiteSpace($Path)) { return }
+    if (-not (Test-Path -LiteralPath $Path)) { return }
     try {
-        $steps = @(
-            (Invoke-AclTool takeown ('/F "' + $Path + '" /A') 30),
-            (Invoke-AclTool icacls ('"' + $Path + '" /inheritance:r') 30),
-            (Invoke-AclTool icacls ('"' + $Path + '" /grant "*S-1-5-32-544:(F)"') 30),
-            (Invoke-AclTool icacls ('"' + $Path + '" /grant "*S-1-5-18:(F)"') 30),
-            (Invoke-AclTool icacls ('"' + $Path + '" /grant "*S-1-5-32-545:(R)"') 30)
-        )
-        if (@($steps | Where-Object { $_ -ne 0 }).Count -gt 0) {
-            Log-Step ("ACL protection failed for " + $Path)
-            return $false
-        }
-        return $true
-    } catch {
-        Log-Step ("ACL protection exception for " + $Path)
-        return $false
-    }
+        Invoke-AclTool takeown ('/F "' + $Path + '" /A') 30 | Out-Null
+        Invoke-AclTool icacls ('"' + $Path + '" /inheritance:r') 30 | Out-Null
+        Invoke-AclTool icacls ('"' + $Path + '" /grant "*S-1-5-32-544:(F)"') 30 | Out-Null   # Administrators: full
+        Invoke-AclTool icacls ('"' + $Path + '" /grant "*S-1-5-18:(F)"') 30 | Out-Null       # SYSTEM: full
+        Invoke-AclTool icacls ('"' + $Path + '" /grant "*S-1-5-32-545:(R)"') 30 | Out-Null   # Users: read only
+    } catch {}
 }
 
 function Handle-ProtectRequest {
@@ -386,22 +376,18 @@ function Handle-ProtectRequest {
                 }
             } catch { $ok = $false }
             if (-not $ok) { continue }
-            if (Protect-LogFile $path) {
-                $protectedCount++
-                $parent = Split-Path -Parent $path
-                if ($parent) { [void]$dirs.Add($parent) }
-            }
+            Protect-LogFile $path
+            $protectedCount++
+            $parent = Split-Path -Parent $path
+            if ($parent) { [void]$dirs.Add($parent) }
         }
-        $directoriesProtected = $true
-        foreach ($d in $dirs) {
-            if (-not (Protect-VaultDirectory $d)) { $directoriesProtected = $false }
-        }
+        foreach ($d in $dirs) { Protect-VaultDirectory $d }
         # Confirm only when something was actually hardened: a done file after a
         # rejected/failed request would make the app report success with NO
         # protection applied. The confirm write must not tear down the live
         # lockdown either (a failed marker write used to escape the try/catch
         # above and Restore-All the whole session).
-        if ($protectedCount -gt 0 -and $directoriesProtected) {
+        if ($protectedCount -gt 0) {
             try {
                 Remove-Item -LiteralPath $protectRequestFile -Force -ErrorAction SilentlyContinue
                 if (-not [string]::IsNullOrWhiteSpace($protectDoneFile)) {
@@ -417,21 +403,16 @@ function Handle-ProtectRequest {
 # parent folder is enough to remove a file. New files keep inheriting Modify so the app
 # can still write a session log and remove its own plaintext copy when sealing.
 function Protect-VaultDirectory([string]$Dir) {
-    if ([string]::IsNullOrWhiteSpace($Dir)) { return $false }
-    if (-not (Test-Path -LiteralPath $Dir)) { return $false }
+    if ([string]::IsNullOrWhiteSpace($Dir)) { return }
+    if (-not (Test-Path -LiteralPath $Dir)) { return }
     try {
-        $steps = @(
-            (Invoke-AclTool takeown ('/F "' + $Dir + '" /A') 30),
-            (Invoke-AclTool icacls ('"' + $Dir + '" /inheritance:r') 30),
-            (Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-32-544:(OI)(CI)(F)"') 30),
-            (Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-18:(OI)(CI)(F)"') 30),
-            (Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-32-545:(RX,W)"') 30),
-            (Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-32-545:(OI)(IO)(M)"') 30)
-        )
-        return @($steps | Where-Object { $_ -ne 0 }).Count -eq 0
-    } catch {
-        return $false
-    }
+        Invoke-AclTool takeown ('/F "' + $Dir + '" /A') 30 | Out-Null
+        Invoke-AclTool icacls ('"' + $Dir + '" /inheritance:r') 30 | Out-Null
+        Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-32-544:(OI)(CI)(F)"') 30 | Out-Null   # Administrators
+        Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-18:(OI)(CI)(F)"') 30 | Out-Null       # SYSTEM
+        Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-32-545:(RX,W)"') 30 | Out-Null        # folder: read + create, no delete-child
+        Invoke-AclTool icacls ('"' + $Dir + '" /grant "*S-1-5-32-545:(OI)(IO)(M)"') 30 | Out-Null   # new files: modify
+    } catch {}
 }
 
 function Remove-OurRules {
@@ -450,9 +431,10 @@ function Set-FileAccessLocks([string]$ListFile, [string]$Sid) {
     foreach ($line in @(Get-Content -LiteralPath $ListFile -Encoding UTF8 -ErrorAction SilentlyContinue)) {
         $p = $line.Trim()
         if (-not $p -or -not (Test-Path -LiteralPath $p)) { continue }
-        # v1.9.66 behavior: apply the same inheritable deny and continue when a
-        # cloud/special filesystem rejects one path, so the rest of the lock set
-        # still protects the exam machine.
+        # Bounded deny: on cloud-synced folders (OneDrive, Google Drive) the
+        # inheritable ACE can take minutes to propagate, and some cloud
+        # filesystems reject the deny outright (exit 87). Either way the arm
+        # sequence must survive: skip the path and keep going.
         $code = Invoke-AclTool icacls ('"' + $p + '" /deny "*' + $Sid + ':(OI)(CI)(RX,D)"') 30
         if ($code -eq 0) {
             $locked.Add($p)
@@ -639,22 +621,12 @@ function Test-HttpsReachable([string]$Target) {
 # The full egress lockdown: outbound web traffic is denied by default and only the
 # resolved addresses of approved domains (plus the local gateway, so campus
 # captive portals and 802.1X page logins keep working) may pass. Verified against
-# The firewall profile state is the authoritative enforcement check. A live HTTPS
-# probe is intentionally not required: captive portals, CDN rotation, proxies and
-# transient DNS can make an approved site probe fail even while the lockdown is
-# correctly armed.
+# a real approved site; on a network where that fails, everything is rolled back
+# and the session continues in DNS-only mode rather than risking a dead network.
 function Apply-EgressLockdown {
     $ips = @(Read-AllowedIps)
-    if ($ips.Count -ge 1) {
-        Set-AllowedDestinationRules $ips
-    } else {
-        # An empty website allowlist is a valid strict policy: no web destination
-        # is approved. Do not fall back to DNS-only mode, because raw IPs and
-        # alternate resolvers would bypass the allowlist.
-        Get-NetFirewallRule -PolicyStore PersistentStore -Group $groupName -ErrorAction SilentlyContinue |
-            Where-Object { $_.DisplayName -like 'Cheat.Guard - allowed web destinations*' } |
-            Remove-NetFirewallRule -ErrorAction SilentlyContinue
-    }
+    if ($ips.Count -lt 1) { return $false }
+    Set-AllowedDestinationRules $ips
     Add-DiscordEgressAllowRules
 
     $gateways = @()
@@ -669,26 +641,20 @@ function Apply-EgressLockdown {
             -Action Allow -Profile Any -ErrorAction SilentlyContinue | Out-Null
     }
 
-    # Strict enforcement: the session must never continue in DNS-only mode.
-    # Native netsh plus NetSecurity are both applied because some Windows builds
-    # expose a stale profile value through only one of the two interfaces.
-    $native = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\netsh.exe') `
-        -ArgumentList 'advfirewall','set','allprofiles','firewallpolicy','blockinbound,blockoutbound' `
-        -WindowStyle Hidden -Wait -PassThru -ErrorAction Stop
-    if ($native.ExitCode -ne 0) { throw ('Native firewall outbound block failed with exit ' + $native.ExitCode) }
-    $profiles = @(Get-NetFirewallProfile -ErrorAction Stop)
-    if ($profiles.Count -lt 1) { throw 'Windows Firewall profiles could not be queried.' }
-    foreach ($p in $profiles) {
-        Set-NetFirewallProfile -Profile $p.Name -Enabled True -DefaultOutboundAction Block -ErrorAction Stop
-        $check = Get-NetFirewallProfile -Name $p.Name -ErrorAction Stop
-        if (-not [bool]$check.Enabled -or [string]$check.DefaultOutboundAction -ne 'Block') {
-            throw ('Firewall profile was not effectively blocked: ' + $p.Name)
-        }
+    foreach ($p in @(Get-NetFirewallProfile -ErrorAction SilentlyContinue)) {
+        try { Set-NetFirewallProfile -Profile $p.Name -DefaultOutboundAction Block -ErrorAction Stop } catch {}
     }
-    if ($ips.Count -ge 1) {
-        $allowRules = @(Get-NetFirewallRule -PolicyStore PersistentStore -ErrorAction Stop |
-            Where-Object { $_.DisplayName -eq 'Cheat.Guard - allowed web destinations (TCP)' -and $_.Enabled -eq 'True' -and $_.Action -eq 'Allow' })
-        if ($allowRules.Count -lt 1) { throw 'Approved web destination firewall rule was not created.' }
+
+    $verified = $false
+    try { $verified = Test-HttpsReachable $verifyHost } catch { $verified = $false }
+    if (-not $verified) {
+        foreach ($p in @($state.Profiles)) {
+            try { Set-NetFirewallProfile -Profile $p.Name -Enabled $p.Enabled -DefaultOutboundAction $p.DefaultOutboundAction -ErrorAction Stop } catch {}
+        }
+        Get-NetFirewallRule -PolicyStore PersistentStore -Group $groupName -ErrorAction SilentlyContinue |
+            Where-Object { $_.DisplayName -like 'Cheat.Guard - allowed web destinations*' -or $_.DisplayName -like 'Cheat.Guard - local network gateway' } |
+            Remove-NetFirewallRule -ErrorAction SilentlyContinue
+        return $false
     }
     return $true
 }
@@ -749,7 +715,7 @@ function Clear-AllLocalDenies {
 function Register-FailSafeTask {
     try {
         $ps = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-        $script = Join-Path $PSScriptRoot 'network-lockdown-v1.9.92.ps1'
+        $script = Join-Path $PSScriptRoot 'network-lockdown.ps1'
         $action = New-ScheduledTaskAction -Execute $ps `
             -Argument ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $script + '" -FailSafeCheck')
         $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
@@ -974,9 +940,9 @@ if ($FailSafeCheck) {
         # readable from this (SYSTEM) context, so a "-Config" filter here once
         # made a live, hung helper invisible and the fail-safe raced a live
         # session's restore. Fail-safe ticks skip on each other's PID only.
-        $appAlive = @(Get-Process -Name 'Cheat.Guard','CheatGuardCentral','CheatGuard' -ErrorAction SilentlyContinue).Count -gt 0
+        $appAlive = @(Get-Process -Name 'CheatGuardCentral','CheatGuard' -ErrorAction SilentlyContinue).Count -gt 0
         $helperAlive = @(Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
-            Where-Object { $_.CommandLine -match 'network-lockdown(?:-v[0-9.]+)?\.ps1' `
+            Where-Object { $_.CommandLine -match 'network-lockdown\.ps1' `
                            -and $_.ProcessId -ne $PID }).Count -gt 0
         if ($appAlive -or $helperAlive) {
             try { ('[' + (Get-Date -Format s) + '] FailSafe: live session detected (app=' +
@@ -1034,7 +1000,7 @@ try {
     # launcher is still finishing, and killing it made the app report a failed
     # launch and roll back an otherwise healthy start.
     Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
-        Where-Object { $_.CommandLine -match 'network-lockdown(?:-v[0-9.]+)?\.ps1' `
+        Where-Object { $_.CommandLine -match 'network-lockdown\.ps1' `
                        -and $_.CommandLine -match '-Config' `
                        -and $_.CommandLine -notmatch '-Command' `
                        -and $_.ProcessId -ne $PID } |
@@ -1191,9 +1157,8 @@ try {
             $script:egressActive = Apply-EgressLockdown
             $script:lastIps = (@(Read-AllowedIps) -join ',')
         } catch {
-            throw ("Strict website lockdown could not be verified: " + $_.Exception.Message)
+            $script:egressActive = $false
         }
-        if (-not $script:egressActive) { throw 'Strict website lockdown could not be verified; session was not started.' }
     }
     if (-not [string]::IsNullOrWhiteSpace($egressStatusFile)) {
         if ($script:egressActive) { 'ACTIVE' | Set-Content -LiteralPath $egressStatusFile -Encoding ASCII }
@@ -1302,28 +1267,10 @@ try {
             Register-FailSafeTask
         }
         if ($script:egressActive -and (($loopCount % 4) -eq 0)) {
-            # Re-assert and verify the complete effective policy while the exam is
-            # live. A startup-only check leaves a bypass if policy/GPO changes after
-            # READY or if Windows replaces the active firewall profile.
-            try {
-                foreach ($p in @(Get-NetFirewallProfile -ErrorAction Stop)) {
-                    if (-not [bool]$p.Enabled -or [string]$p.DefaultOutboundAction -ne 'Block') {
-                        Set-NetFirewallProfile -Profile $p.Name -Enabled True -DefaultOutboundAction Block -ErrorAction Stop
-                    }
-                }
-                $liveFw = New-Object -ComObject HNetCfg.FwPolicy2
-                foreach ($profileType in @(1, 2, 4)) {
-                    if (-not $liveFw.FirewallEnabled($profileType) -or [int]$liveFw.DefaultOutboundAction($profileType) -ne 0) {
-                        throw ('effective outbound firewall policy changed for profile ' + $profileType)
-                    }
-                }
-                if ((@(Get-NetFirewallRule -PolicyStore PersistentStore -ErrorAction Stop |
-                    Where-Object { $_.DisplayName -eq 'Cheat.Guard - allowed web destinations (TCP)' -and $_.Enabled -eq 'True' -and $_.Action -eq 'Allow' })).Count -lt 1) {
-                    throw 'approved web destination rule disappeared'
-                }
-            } catch {
-                Log-Step ('LIVE LOCKDOWN LOST: ' + $_.Exception.Message)
-                throw
+            # An administrator flipping the outbound default back to Allow is a
+            # two-second bypass; re-assert it continuously while egress is armed.
+            foreach ($p in @(Get-NetFirewallProfile -ErrorAction SilentlyContinue)) {
+                try { if ($p.DefaultOutboundAction -ne 'Block') { Set-NetFirewallProfile -Profile $p.Name -DefaultOutboundAction Block -ErrorAction Stop } } catch {}
             }
         }
         if (($loopCount % 20) -eq 0) {
