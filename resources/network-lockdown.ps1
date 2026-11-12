@@ -455,7 +455,8 @@ function Set-FileAccessLocks([string]$ListFile, [string]$Sid) {
         # Applying an inheritable deny to a large workspace can legitimately
         # take longer than the old 30-second arm timeout. Do not turn a slow
         # ACL operation into a false session-start failure.
-        $code = Invoke-AclTool icacls ('"' + $p + '" /deny "*' + $Sid + ':(OI)(CI)(RX,D)"') 120
+        $rights = if (Test-Path -LiteralPath $p -PathType Container) { '(OI)(CI)(RX,D)' } else { '(RX,D)' }
+        $code = Invoke-AclTool icacls ('"' + $p + '" /deny "*' + $Sid + ':' + $rights + '"') 120
         if ($code -eq 0 -and (Test-DenyPresent $p $Sid)) {
             $locked.Add($p)
         } else {
