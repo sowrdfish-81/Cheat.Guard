@@ -8,8 +8,12 @@ invigilator's screen over **TLS** with an HMAC exam-code proof on top.
 
 ## Current release
 
-Version: **1.9.76**
-Release: [v1.9.76](https://github.com/sowrdfish-81/Cheat.Guard/releases/tag/v1.9.76)
+Version: **1.9.138**
+Release: [v1.9.138](https://github.com/sowrdfish-81/Cheat.Guard/releases/tag/v1.9.138)
+
+The current release is distributed as a single Windows installer containing
+the application, bundled Java runtime, support utilities, and matching
+SHA-256 checksum asset.
 
 Release assets (see the release page for the exact SHA-256 of the current
 installer; the in-app updater verifies it before installing):
@@ -41,6 +45,8 @@ installer; the in-app updater verifies it before installing):
 - Proxy, VPN, remote-control, tunnel-port, and raw-egress protections.
 - Recovery support for interrupted sessions and abnormal shutdowns.
 - Non-blocking UI handling for UAC, sealing, diagnostics, and log operations.
+- Central monitor triage: students with more RED FLAG alerts are ranked first,
+  and alerted rows remain visibly highlighted for quick invigilator review.
 
 ## Requirements
 
@@ -140,6 +146,12 @@ build-installer.bat        Installer build and checksum generation
 If a session ends unexpectedly, use the installed recovery utility or relaunch
 the application as an administrator. Diagnostics are available through the
 installed `diagnostics.bat` utility.
+
+## Current release highlights
+
+v1.9.138 is the current release. It includes central-monitor alert ranking and
+full-row alert highlighting improvements. Always install the matching installer
+and verify its adjacent `.sha256` file before deployment.
 
 ## Security boundaries
 
