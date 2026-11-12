@@ -699,12 +699,9 @@ function Apply-EgressLockdown {
     # policy as the final authority before allowing the exam to continue.
     try {
         $fwPolicy = New-Object -ComObject HNetCfg.FwPolicy2
-        # Write the effective COM policy as well as NetSecurity/netsh. Some
-        # Windows builds report the cmdlet value but keep the COM profile open.
-        foreach ($profile in @($fwPolicy.Profiles)) {
-            $profile.FirewallEnabled = $true
-            $profile.DefaultOutboundAction = 0 # NET_FW_ACTION_BLOCK
-        }
+        # NetSecurity/netsh perform the write. The COM API is used read-only here
+        # because HNetCfg.FwPolicy2 exposes profile values by profile type, not as
+        # writable objects through a Profiles collection in Windows PowerShell 5.1.
         foreach ($profileType in @(1, 2, 4)) {
             if (-not $fwPolicy.FirewallEnabled($profileType) -or
                 # NET_FW_ACTION_BLOCK is 0; NET_FW_ACTION_ALLOW is 1.
