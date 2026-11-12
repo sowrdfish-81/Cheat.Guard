@@ -656,6 +656,15 @@ function Apply-EgressLockdown {
             throw ('outbound policy was not blocked for profile ' + $p.Name)
         }
     }
+    # NetSecurity can expose the configured value while the effective Windows
+    # Firewall COM policy remains Allow. Read the effective policy before READY.
+    $effective = New-Object -ComObject HNetCfg.FwPolicy2
+    foreach ($profileType in @(1, 2, 4)) {
+        if (-not $effective.FirewallEnabled($profileType) -or
+            [int]$effective.DefaultOutboundAction($profileType) -ne 0) {
+            throw ('effective outbound policy is not Block for profile ' + $profileType)
+        }
+    }
     $allowRules = @(Get-NetFirewallRule -PolicyStore PersistentStore -ErrorAction Stop |
         Where-Object { $_.DisplayName -eq 'Cheat.Guard - allowed web destinations (TCP)' -and $_.Enabled -eq 'True' -and $_.Action -eq 'Allow' })
     if ($allowRules.Count -lt 1) { throw 'approved web destination rule is missing' }
