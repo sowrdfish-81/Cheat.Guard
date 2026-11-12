@@ -754,7 +754,7 @@ function Clear-AllLocalDenies {
 function Register-FailSafeTask {
     try {
         $ps = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
-        $script = Join-Path $PSScriptRoot 'network-lockdown.ps1'
+        $script = Join-Path $PSScriptRoot 'network-lockdown-v1.9.91.ps1'
         $action = New-ScheduledTaskAction -Execute $ps `
             -Argument ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $script + '" -FailSafeCheck')
         $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
