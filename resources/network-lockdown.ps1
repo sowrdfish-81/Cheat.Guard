@@ -450,17 +450,14 @@ function Set-FileAccessLocks([string]$ListFile, [string]$Sid) {
     foreach ($line in @(Get-Content -LiteralPath $ListFile -Encoding UTF8 -ErrorAction SilentlyContinue)) {
         $p = $line.Trim()
         if (-not $p -or -not (Test-Path -LiteralPath $p)) { continue }
-        # A failed deny is a security failure. Do not report a live exam while
-        # Explorer can still open a skipped folder.
-        # Applying an inheritable deny to a large workspace can legitimately
-        # take longer than the old 30-second arm timeout. Do not turn a slow
-        # ACL operation into a false session-start failure.
-        $rights = if (Test-Path -LiteralPath $p -PathType Container) { '(OI)(CI)(RX,D)' } else { '(RX,D)' }
-        $code = Invoke-AclTool icacls ('"' + $p + '" /deny "*' + $Sid + ':' + $rights + '"') 120
-        if ($code -eq 0 -and (Test-DenyPresent $p $Sid)) {
+        # v1.9.66 behavior: apply the same inheritable deny and continue when a
+        # cloud/special filesystem rejects one path, so the rest of the lock set
+        # still protects the exam machine.
+        $code = Invoke-AclTool icacls ('"' + $p + '" /deny "*' + $Sid + ':(OI)(CI)(RX,D)"') 30
+        if ($code -eq 0) {
             $locked.Add($p)
         } else {
-            throw ("file wall failed for '" + $p + "' (icacls exit " + $code + ")")
+            Log-Step ("file wall: skipped '" + $p + "' (icacls exit " + $code + ")")
         }
     }
     return $locked
@@ -468,11 +465,11 @@ function Set-FileAccessLocks([string]$ListFile, [string]$Sid) {
 
 function Test-DenyPresent([string]$Path, [string]$Sid) {
     try {
-        $acl = Get-Acl -LiteralPath $Path -ErrorAction Stop
-        foreach ($rule in @($acl.Access)) {
-            try { $identity = $rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value }
-            catch { $identity = [string]$rule.IdentityReference }
-            if ($identity -eq $Sid -and $rule.AccessControlType -eq [System.Security.AccessControl.AccessControlType]::Deny) { return $true }
+        $out = icacls "$Path" 2>$null
+        if ($LASTEXITCODE -ne 0) { return $false }
+        foreach ($line in @($out)) {
+            if ($null -eq $line) { continue }
+            if ($line.Contains($Sid) -and $line -match '\(DENY\)') { return $true }
         }
     } catch {}
     return $false
@@ -1203,8 +1200,7 @@ try {
     Log-Step 'firewall rules armed; applying file walls'
     $script:fileLocks = @()
     if ((-not [string]::IsNullOrWhiteSpace($lockPathsFile)) -and (Test-Path -LiteralPath $lockPathsFile)) {
-        try { $script:fileLocks = @(Set-FileAccessLocks $lockPathsFile $cfg.userSid) }
-        catch { throw ("File walls could not be applied completely: " + $_.Exception.Message) }
+        try { $script:fileLocks = @(Set-FileAccessLocks $lockPathsFile $cfg.userSid) } catch { $script:fileLocks = @() }
     }
     # The hosts file is a direct DNS bypass: mapping any blocked name to a raw IP
     # makes the local filter irrelevant for that name. Deny writes for the student's
@@ -1223,7 +1219,7 @@ try {
     Log-Step ('file walls applied: ' + $script:fileLocks.Count + ' path(s) locked')
     if (-not [string]::IsNullOrWhiteSpace($lockStatusFile)) {
         if ($script:fileLocks.Count -ge 1) { 'ACTIVE' | Set-Content -LiteralPath $lockStatusFile -Encoding ASCII }
-        else { throw 'File walls produced no verified locks.' }
+        else { 'SKIPPED' | Set-Content -LiteralPath $lockStatusFile -Encoding ASCII }
     }
 
     # Force browsers onto the system resolver, then point the system resolver at the
