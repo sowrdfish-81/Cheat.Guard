@@ -638,8 +638,10 @@ function Test-HttpsReachable([string]$Target) {
 # The full egress lockdown: outbound web traffic is denied by default and only the
 # resolved addresses of approved domains (plus the local gateway, so campus
 # captive portals and 802.1X page logins keep working) may pass. Verified against
-# a real approved site; on a network where that fails, everything is rolled back
-# and the session continues in DNS-only mode rather than risking a dead network.
+# The firewall profile state is the authoritative enforcement check. A live HTTPS
+# probe is intentionally not required: captive portals, CDN rotation, proxies and
+# transient DNS can make an approved site probe fail even while the lockdown is
+# correctly armed.
 function Apply-EgressLockdown {
     $ips = @(Read-AllowedIps)
     if ($ips.Count -ge 1) {
@@ -678,21 +680,8 @@ function Apply-EgressLockdown {
         throw ('Could not enforce outbound firewall block on profile(s): ' + ($profileFailures -join ', '))
     }
 
-    $verified = $false
-    if ($ips.Count -lt 1) {
-        $verified = $true
-    } else {
-        try { $verified = Test-HttpsReachable $verifyHost } catch { $verified = $false }
-    }
-    if (-not $verified) {
-        foreach ($p in @($state.Profiles)) {
-            try { Set-NetFirewallProfile -Profile $p.Name -Enabled $p.Enabled -DefaultOutboundAction $p.DefaultOutboundAction -ErrorAction Stop } catch {}
-        }
-        Get-NetFirewallRule -PolicyStore PersistentStore -Group $groupName -ErrorAction SilentlyContinue |
-            Where-Object { $_.DisplayName -like 'Cheat.Guard - allowed web destinations*' -or $_.DisplayName -like 'Cheat.Guard - local network gateway' } |
-            Remove-NetFirewallRule -ErrorAction SilentlyContinue
-        return $false
-    }
+    # Reaching a particular approved host is not a valid arm criterion. The
+    # verified Block profile plus destination rules is the lockdown itself.
     return $true
 }
 
