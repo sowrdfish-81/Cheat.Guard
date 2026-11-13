@@ -1,4 +1,5 @@
 name: Windows VM integration tests
+# Rafa owns orchestration; Muhit's enforcement and Rohan's network flow are tested here.
 
 # REAL-WINDOWS integration tests on a dedicated, disposable Windows VM.
 #

@@ -109,6 +109,9 @@ PowerShell syntax of every `.ps1` in the repository is validated with
 
 ## Repository layout
 
+Ownership and end-to-end flow: [`CODE_OWNERSHIP.md`](CODE_OWNERSHIP.md) and
+[`docs/ARCHITECTURE_FLOW.md`](docs/ARCHITECTURE_FLOW.md).
+
 ```text
 src\com\cheatguard\       Application source
   config\                  Configuration and update handling

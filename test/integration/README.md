@@ -1,5 +1,8 @@
 # Windows VM integration tests
 
+Rafa owns orchestration/reporting; Muhit's enforcement and Rohan's network
+behavior are verified through the real installer and disposable VM.
+
 These scripts exercise Cheat.Guard **on a real, disposable Windows
 machine**: the actual installer, the actual installed application, the actual
 network-lockdown helper and the actual emergency-restore tool. They are the

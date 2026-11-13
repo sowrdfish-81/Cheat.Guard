@@ -1,4 +1,5 @@
 name: CI
+# Rafa owns CI orchestration; jobs validate each product boundary.
 
 on:
   pull_request:
