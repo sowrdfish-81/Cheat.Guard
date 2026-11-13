@@ -31,6 +31,15 @@ import com.cheatguard.watchdog.CentralAuth;
 import com.cheatguard.watchdog.CentralReporter;
 import com.cheatguard.watchdog.CentralTls;
 
+// ============================================================================
+// SHARED FILE OWNERSHIP
+// Muhit  : lockdown/security state shown by this panel.
+// Rohan  : central connection, event intake, ranking data and alert counts.
+// Rafa   : layout, table rendering, highlighting, controls and UX behavior.
+// Keep changes inside the matching section below and coordinate cross-section
+// changes before merging.
+// ============================================================================
+
 /**
  * The invigilator's central screen, organised the way an invigilator thinks:
  *
@@ -42,6 +51,9 @@ import com.cheatguard.watchdog.CentralTls;
  * it "Cheat confirmed" or "Cleared". Verdicts are recorded in the CSV too.
  */
 public class CentralMonitorPanel extends JPanel {
+
+    // ============================ Rohan: data ===============================
+    // Student records, event intake, sorting and alert-ranking state.
 
     private static final int CENTRAL_TCP_PORT = 47821;
     private static final String FIREWALL_RULE_NAME = "Cheat.Guard Monitor";
@@ -78,6 +90,9 @@ public class CentralMonitorPanel extends JPanel {
             new Object[]{"Student ID", "PC", "Course", "Status", "Red flags", "Last seen"}, 0) {
         @Override public boolean isCellEditable(int r, int c) { return false; }
     };
+
+    // ============================ Rafa: presentation ========================
+    // Swing layout, table columns, row highlighting and invigilator controls.
     private final JTable studentTable = new JTable(studentModel);
 
     private final DefaultTableModel eventModel = new DefaultTableModel(

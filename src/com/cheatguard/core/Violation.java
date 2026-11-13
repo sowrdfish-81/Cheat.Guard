@@ -1,5 +1,12 @@
 package com.cheatguard.core;
 
+// ============================================================================
+// SHARED FILE OWNERSHIP
+// Muhit  : security violation types and enforcement severity.
+// Rohan  : event creation, transport fields and central-monitor aggregation.
+// Rafa   : labels, display text and UI presentation mapping.
+// ============================================================================
+
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 

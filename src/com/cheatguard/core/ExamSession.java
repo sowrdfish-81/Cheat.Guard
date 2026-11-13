@@ -7,6 +7,13 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+// ============================================================================
+// SHARED FILE OWNERSHIP
+// Muhit  : session security state, lifecycle guards and lockdown outcomes.
+// Rohan  : session events consumed by central monitoring and alert transport.
+// Rafa   : session status text, display formatting and UI-facing behavior.
+// ============================================================================
+
 /** One exam session, its student folder, lifecycle times and audit log. */
 public class ExamSession {
     private final String courseCode;

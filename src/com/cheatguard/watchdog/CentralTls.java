@@ -30,6 +30,13 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
+// ============================================================================
+// SHARED FILE OWNERSHIP
+// Muhit  : security guarantees, certificate validation and fail-closed rules.
+// Rohan  : TLS server/client transport, pairing and connection configuration.
+// Rafa   : diagnostic messages and UI-visible connection failure wording.
+// ============================================================================
+
 /**
  * TLS transport for the central monitor link (invigilator server + student
  * clients), layered UNDER the existing HMAC challenge-response: TLS encrypts

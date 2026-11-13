@@ -17,6 +17,13 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 
+// ============================================================================
+// SHARED FILE OWNERSHIP
+// Muhit  : security-state/reporting integration and session lifecycle signals.
+// Rohan  : discovery, TLS connection, exam-code handshake and event transport.
+// Rafa   : UI-facing status/error callbacks and user-visible diagnostics.
+// ============================================================================
+
 /**
  * Streams this student's audit events to the invigilator's central monitor over
  * the exam LAN.
@@ -38,6 +45,9 @@ import java.util.List;
  * everything the watchdog flags locally is what the invigilator sees.
  */
 public final class CentralReporter {
+
+    // ============================ Rohan: transport ==========================
+    // Pairing, discovery, reconnect, queueing and central event delivery.
 
     public static final int CENTRAL_TCP_PORT = 47821;
     public static final int DISCOVERY_UDP_PORT = 47822;
