@@ -56,3 +56,7 @@ try {
 } catch {
     Write-Host '  Administrator approval was declined; nothing was changed.' -ForegroundColor Red
 }
+<#
+ Muhit: recovery helper. Reads the saved lockdown state and restores firewall,
+ DNS and ACL changes after crash/interrupted-session recovery.
+#>

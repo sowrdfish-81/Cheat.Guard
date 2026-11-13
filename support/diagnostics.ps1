@@ -35,3 +35,7 @@ if (Test-Path $logs) {
 $lines | Set-Content -LiteralPath $out -Encoding UTF8
 Write-Host ''
 Write-Host ('  Diagnostics saved to: ' + $out) -ForegroundColor Green
+<#
+ Rafa: support diagnostics. Reads logs/state from the installed app and produces
+ a support bundle; it does not change exam policy or lockdown state.
+#>

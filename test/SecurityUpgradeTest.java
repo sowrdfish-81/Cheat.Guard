@@ -36,3 +36,4 @@ public final class SecurityUpgradeTest {
         System.out.println("PASS security upgrade tests");
     }
 }
+// QA flow: legacy security data -> migration/validation -> compatible result.

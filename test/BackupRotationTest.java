@@ -264,3 +264,4 @@ public class BackupRotationTest {
         System.out.println("-- " + name + " --");
     }
 }
+// QA flow: vault backups + retention policy -> rotation -> recovery-safe result.

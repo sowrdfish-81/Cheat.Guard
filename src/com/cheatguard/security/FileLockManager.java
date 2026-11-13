@@ -1,5 +1,7 @@
 package com.cheatguard.security;
 
+// Muhit: exam-folder/user context -> temporary ACL wall -> restored permissions.
+
 // OWNER: Muhit — file/folder wall enforcement and restoration.
 
 import com.cheatguard.core.AppLog;

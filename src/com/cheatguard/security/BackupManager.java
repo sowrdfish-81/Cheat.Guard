@@ -1,5 +1,7 @@
 package com.cheatguard.security;
 
+// Muhit: sealed logs -> protected rotating backups -> recovery workflow.
+
 // OWNER: Muhit — secure backup and recovery lifecycle.
 
 import com.cheatguard.config.AppPaths;

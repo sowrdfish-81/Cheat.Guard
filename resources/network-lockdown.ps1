@@ -1348,3 +1348,7 @@ try {
     try { Restore-All } catch {}
     exit 1
 }
+<#
+ Muhit: elevated lockdown helper. Java writes policy files; this script applies
+ firewall/DNS/file walls and writes READY/RESTORED state back for verification.
+#>

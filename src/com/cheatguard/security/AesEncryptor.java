@@ -1,5 +1,7 @@
 package com.cheatguard.security;
 
+// Muhit: vault bytes/key material -> authenticated encrypted data.
+
 // OWNER: Muhit — authenticated encryption primitives for protected records.
 
 import javax.crypto.Cipher;

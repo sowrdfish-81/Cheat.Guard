@@ -1,5 +1,7 @@
 package com.cheatguard.config;
 
+// Rafa: GitHub release metadata -> verified installer/checksum -> updater UI.
+
 // OWNER: Rafa — update discovery, installer verification and update UX.
 
 import java.io.ByteArrayOutputStream;
@@ -60,6 +62,8 @@ public final class UpdateChecker {
     }
 
     /** Ask GitHub which release is latest. Network and malformed responses are treated as no update. */
+    /** Reads GitHub release metadata and returns a newer installer/checksum pair.
+     * Output is consumed by SettingsPanel and the automatic updater. */
     public static Optional<UpdateInfo> checkLatest() {
         return checkLatestAgainst(CURRENT_VERSION);
     }
@@ -132,6 +136,8 @@ public final class UpdateChecker {
     }
 
     /** Download, verify, and atomically replace the destination with a release asset. */
+    /** Downloads the installer, verifies its size/SHA-256 and replaces it atomically.
+     * Source: release assets; consumer: the verified update launcher. */
     public static void downloadVerified(UpdateInfo update, File dest, IntConsumer progress)
             throws Exception {
         Objects.requireNonNull(update, "update");
@@ -169,6 +175,7 @@ public final class UpdateChecker {
     }
 
     /** Background update watcher retained for existing callers. */
+    /** Runs release checks off the UI thread and reports a new version by callback. */
     public static void startAutoChecking(Consumer<UpdateInfo> onNew) {
         Objects.requireNonNull(onNew, "onNew");
         ScheduledExecutorService ses = Executors.newSingleThreadScheduledExecutor(r -> {

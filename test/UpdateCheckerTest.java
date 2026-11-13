@@ -15,3 +15,4 @@ public final class UpdateCheckerTest {
         System.out.println("PASS updater parser tests");
     }
 }
+// QA flow: release metadata/assets -> parser/checksum validation -> updater result.

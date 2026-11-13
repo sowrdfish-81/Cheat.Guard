@@ -389,3 +389,4 @@ public class CentralTlsTest {
         System.out.println("-- " + name + " --");
     }
 }
+// QA flow: TLS/pairing input -> transport validation -> accepted/rejected result.

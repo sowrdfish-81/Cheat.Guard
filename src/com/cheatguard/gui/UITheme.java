@@ -1,5 +1,7 @@
 package com.cheatguard.gui;
 
+// Rafa: text/components + theme constants -> consistent Swing UI components.
+
 // OWNER: Rafa — application-wide colors, typography and layout theme.
 
 import javax.imageio.ImageIO;

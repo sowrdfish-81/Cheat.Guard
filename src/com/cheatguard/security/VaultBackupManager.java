@@ -1,5 +1,7 @@
 package com.cheatguard.security;
 
+// Muhit: completed vault + retention settings -> atomic backup set.
+
 // OWNER: Muhit — encrypted vault backup rotation and retention.
 
 import com.cheatguard.config.AppConfig;
