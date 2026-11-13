@@ -25,6 +25,8 @@ public class LogManager {
         }
     }
 
+    /** Appends a violation to memory and the session file.
+     * Source: watchdog producers; consumers: audit vault and central reporter. */
     public synchronized void record(Violation v) {
         violations.add(v);
         String line = v.toString() + System.lineSeparator();
@@ -49,6 +51,7 @@ public class LogManager {
         AppLog.warn("Could not write log: " + (last == null ? "unknown error" : last.getMessage()));
     }
 
+    /** Returns a defensive snapshot for UI, sealing and central-monitor readers. */
     public synchronized List<Violation> getAllViolations() { return new ArrayList<>(violations); }
 
     /**
@@ -74,6 +77,7 @@ public class LogManager {
         }
     }
     public File getLogFile() { return logFile; }
+    /** Counts RED violations used for central ranking and row highlighting. */
     public synchronized long getRedFlagCount() {
         long count = 0;
         for (Violation v : violations) if (v.isRedFlag()) count++;

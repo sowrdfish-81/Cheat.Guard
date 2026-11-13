@@ -82,6 +82,8 @@ public class Main {
     /** Guards double-clicks while a session is being started or ended. */
     private volatile boolean sessionBusy;
 
+    /** Starts the desktop process and selects the correct Windows UI flow.
+     * Reads startup arguments/environment and hands control to start(). */
     public static void main(String[] args) {
         // Remember who is actually signed in before elevation possibly switches the
         // process to another account (invigilator's admin credentials over the
@@ -223,6 +225,8 @@ public class Main {
         return System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("win");
     }
 
+    /** Builds the home screen and starts background update checks.
+     * Data source: local config; output: Swing panels and updater notifications. */
     private void start() {
         frame = new JFrame("Cheat.Guard \u2014 " + BUILD_STAMP);
         frame.setSize(1120, 720);
@@ -475,6 +479,8 @@ public class Main {
 
     // ------------------------------------------------------- session lifecycle
 
+    /** Creates the session and coordinates lockdown, monitoring and UI state.
+     * Muhit supplies enforcement; Rohan supplies events; Rafa displays them. */
     private void startExam(String course, String studentId) {
         if (sessionBusy) return;
         sessionBusy = true;
@@ -803,6 +809,8 @@ public class Main {
      * wait up to 20 seconds for the elevated helper, and restoring the network up
      * to 25 more. None of that may run on the interface thread.
      */
+    /** Stops enforcement, restores the machine and seals the audit log.
+     * Reads active session state and sends completion status to the dashboard. */
     private void requestEndSession(ExamSession session) {
         if (sessionBusy) {
             JOptionPane.showMessageDialog(frame,

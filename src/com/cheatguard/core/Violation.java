@@ -45,6 +45,7 @@ public class Violation {
     public String getDescription() { return description; }
     public Severity getSeverity() { return severity; }
 
+    /** Converts severity into the central monitor ranking/highlight signal. */
     public boolean isRedFlag() {
         return severity == Severity.CRITICAL || severity == Severity.WARNING;
     }

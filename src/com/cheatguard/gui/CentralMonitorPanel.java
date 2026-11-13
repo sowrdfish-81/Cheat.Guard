@@ -130,6 +130,8 @@ public class CentralMonitorPanel extends JPanel {
     private final JTextField codeField = new JTextField();
     private final Timer tableRefreshTimer;
 
+    /** Builds the invigilator monitor and wires shared data to the tables.
+     * Rohan supplies events, Muhit supplies security state, Rafa owns presentation. */
     public CentralMonitorPanel(Runnable onBack) {
         setLayout(new BorderLayout(14, 14));
         setBackground(UITheme.BG_DARK);
@@ -361,6 +363,8 @@ public class CentralMonitorPanel extends JPanel {
 
     // ------------------------------------------------------------- lifecycle --
 
+    /** Starts the central listener and advertises the exam code/IP.
+     * Incoming events become records, counters and ranked/highlighted rows. */
     private synchronized void startMonitor() {
         if (running) return;
         String code = codeField.getText().trim();

@@ -101,6 +101,8 @@ public final class CentralReporter {
     }
 
     /** Start the sender loop. Best effort, never throws. */
+    /** Starts discovery and the outbound event sender.
+     * Reads session/exam configuration; sends status and violations to the monitor. */
     public void start() {
         if (running) return;
         stopping = false;
@@ -128,6 +130,7 @@ public final class CentralReporter {
         this.statusConsumer = sink;
     }
 
+    /** Stops discovery, closes the socket and prevents new events from being sent. */
     public void stop() {
         if (!running) return;
         report(new Violation("SESSION_END",
@@ -157,6 +160,8 @@ public final class CentralReporter {
     }
 
     /** Queue one violation for the invigilator; drops the oldest when overflowing. */
+    /** Queues a local violation for central delivery without blocking the watchdog.
+     * Source: local violation listeners; consumer: monitor event stream. */
     public void report(Violation v) {
         if (!running || v == null) return;
         String line = System.currentTimeMillis()
@@ -196,6 +201,7 @@ public final class CentralReporter {
      * exactly what a hotspot setup needs, where the invigilator's IP changes
      * with every new network.
      */
+    /** Finds the invigilator IP from the UDP beacon, then starts TCP/TLS delivery. */
     private void startDiscovery() {
         Thread t = new Thread(() -> {
             try (java.net.DatagramSocket socket = new java.net.DatagramSocket(null)) {
@@ -360,6 +366,7 @@ public final class CentralReporter {
     }
 
     /** Connect/reconnect to the central monitor and drain the queue. */
+    /** Reconnects and drains queued events in order while the exam is active. */
     private void sendLoop() {
         List<String> batch = new ArrayList<>();
         long startedAt = System.currentTimeMillis();

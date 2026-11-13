@@ -24,6 +24,8 @@ public class ExamSession {
     private final LocalDateTime startTime;
     private LocalDateTime endTime;
 
+    /** Creates the exam folder/session log and records SESSION_START.
+     * Input comes from the setup form; output is consumed by watchdogs and UI. */
     public ExamSession(String courseCode, String studentId) {
         this.courseCode = sanitize(courseCode);
         this.studentId = sanitize(studentId);
@@ -39,6 +41,8 @@ public class ExamSession {
                         " | ExamFolder=" + examFolder.getAbsolutePath(), Violation.Severity.INFO));
     }
 
+    /** Records end time and closes the session log exactly once.
+     * The sealed log is later consumed by backup code and the dashboard. */
     public synchronized void endSession() {
         if (endTime != null) return;
         endTime = LocalDateTime.now();

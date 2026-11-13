@@ -170,6 +170,8 @@ public final class DnsAllowlistServer implements Closeable {
      *                     Connection Sharing service); the caller must surface this
      *                     because the allowlist would otherwise not be enforced.
      */
+    /** Binds DNS listeners and begins approved-domain resolution.
+     * Reads the website allowlist; emits blocked-domain violations. */
     public void start() throws IOException {
         if (running.get()) return;
         socket = new DatagramSocket(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), DNS_PORT));
@@ -215,6 +217,7 @@ public final class DnsAllowlistServer implements Closeable {
     }
 
     @Override
+    /** Stops DNS listeners and releases sockets/cache state during recovery. */
     public void close() {
         running.set(false);
         DatagramSocket s = socket;
@@ -263,6 +266,8 @@ public final class DnsAllowlistServer implements Closeable {
         }
     }
 
+    /** Parses one DNS query and chooses approved resolution or a blocked response.
+     * Approved IPs go to firewall policy; blocked names go to the reporter. */
     private void handle(DatagramPacket request, DatagramSocket bound) {
         byte[] query = new byte[request.getLength()];
         System.arraycopy(request.getData(), request.getOffset(), query, 0, request.getLength());
@@ -295,6 +300,8 @@ public final class DnsAllowlistServer implements Closeable {
      * repeated lookups (page + assets + safe-browsing refreshes) into a single
      * upstream round-trip and makes approved pages load noticeably faster.
      */
+    /** Resolves an allowed host through upstream DNS and caches its answer.
+     * Answer IPs are shared with strict network lockdown for allowlisting. */
     private byte[] resolveApproved(byte[] query, String host) {
         String key = cacheKey(query, host);
         if (key != null) {
@@ -482,6 +489,8 @@ public final class DnsAllowlistServer implements Closeable {
      * recorded — as a NOTICE (yellow), because the block held and nothing opened.
      * A red flag stays reserved for things that actually got through.
      */
+    /** Records a blocked domain once per reporting window.
+     * Output goes to the local audit log and central-monitor violation stream. */
     private void recordBlocked(String host) {
         if (System.currentTimeMillis() < graceUntil) return;
         if (loggedBlockedHosts.size() >= MAX_LOGGED_HOSTS) return;

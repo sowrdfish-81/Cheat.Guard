@@ -63,6 +63,8 @@ public final class StrictNetworkLockdown implements Closeable {
         if (folder != null && folder.isDirectory()) this.examFolder = folder;
     }
 
+    /** Arms firewall, DNS and file-wall helpers as one fail-closed transaction.
+     * Publishes READY only after helper verification succeeds. */
     public boolean start() {
         lastError = "";
         if (!isWindows()) {
@@ -253,6 +255,8 @@ public final class StrictNetworkLockdown implements Closeable {
 
     public File getErrorFile() { return error; }
 
+    /** Requests elevated helper rollback and waits for restored state before sealing.
+     * Output: firewall/DNS/file permissions return to the pre-exam state. */
     public boolean stopAndRestore() {
         if (!isWindows()) return true;
         // Kill the helper watchdog FIRST so a normal shutdown can never be mistaken
@@ -307,6 +311,7 @@ public final class StrictNetworkLockdown implements Closeable {
         return restored.exists() || !state.exists();
     }
 
+    /** Recovers leftover lockdown from a crash or interrupted session at startup. */
     public static boolean recoverStaleIfPresent() {
         if (!isWindowsStatic()) return true;
         File dir = AppPaths.getNetworkDirectory();
@@ -599,6 +604,8 @@ public final class StrictNetworkLockdown implements Closeable {
      * it would inherit down onto the exam folder itself. Its OTHER children are
      * locked instead, so only the exam chain stays open.
      */
+    /** Builds the lock-path policy while preserving the exam folder chain.
+     * Input: profile/desktop/exam folder; output: elevated helper policy. */
     public static List<String> collectLockPaths(File profile, File desktop, File examFolder,
                                                 List<File> extraRoots) {
         List<String> out = new ArrayList<>();
