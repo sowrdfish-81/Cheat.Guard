@@ -118,6 +118,8 @@ public final class CentralTls {
     }
 
     /** Create the invigilator TLS material on first monitor start. */
+    /** Creates/validates the monitor keystore and certificate identity.
+     * Source: local config/network IPs; consumer: TLS server and student pairing. */
     public static synchronized void ensureServerSetup() throws IOException {
         File existingKey = configuredKeystoreFile();
         if (existingKey.isFile()) {
@@ -270,6 +272,7 @@ public final class CentralTls {
      * A connected, handshaken TLS client socket to the monitor at
      * {@code host}:{@code port}, validated against the configured truststore.
      */
+    /** Opens a hostname/IP-validated TLS client socket to the monitor. */
     public static SSLSocket newClientSocket(String host, int port) throws IOException {
         return newClientSocket(host, port, "");
     }
@@ -541,6 +544,8 @@ public final class CentralTls {
      *         knows student PCs will re-pair via the beacon (offline-imported
      *         truststore copies need a re-export). A first provision returns false.
      */
+    /** Rotates/updates the pinned certificate when the monitor's LAN IP changes.
+     * Output: truststore accepted by student-side pairing. */
     public static synchronized boolean ensureCurrentIpsCovered() throws IOException {
         File key = configuredKeystoreFile();
         if (!key.isFile()) {
@@ -650,6 +655,8 @@ public final class CentralTls {
     }
 
     /** Pair a monitor discovered by the authenticated LAN TCP fallback. */
+    /** Captures and pins the monitor certificate over TCP pairing.
+     * Source: monitor endpoint; output: fingerprint/truststore for CentralReporter. */
     public static String pairMonitorOverTcp(String host, int port) throws IOException {
         X509Certificate certificate = captureCertificate(host, port);
         String fingerprint = sha256Hex(certificate);

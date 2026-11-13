@@ -6,6 +6,8 @@ import com.cheatguard.core.AppLog;
 
 /** Windows process enforcement helper. */
 public class ProcessController {
+    /** Attempts to close a disallowed process and returns enforcement success.
+     * Source: WatchdogEngine scan; output: process result for violation logging. */
     public boolean terminate(long pid) {
         if (pid <= 0) return false;
         try {

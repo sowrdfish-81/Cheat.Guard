@@ -27,6 +27,8 @@ public class ExternalDeviceMonitor {
     }
 
     /** Devices attached after the initial snapshot. */
+    /** Scans current devices and returns only newly observed risky devices.
+     * Consumer: WatchdogEngine, which converts them into violations. */
     public synchronized List<String> checkForNewRiskDevices() {
         Map<String, String> current = snapshot();
         List<String> added = new ArrayList<>();

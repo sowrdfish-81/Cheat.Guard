@@ -1,4 +1,5 @@
 @echo off
+REM Rafa owns packaging flow: source/version -> bundled runtime -> single installer/checksum.
 setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
 

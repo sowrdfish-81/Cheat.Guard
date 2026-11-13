@@ -1,4 +1,5 @@
 name: Release
+# Rafa owns release automation; build output comes from build-installer.bat.
 
 # Builds, tests, optionally signs, and publishes the installer for a version
 # tag such as v1.9.0. The certificate NEVER enters the repository: it arrives

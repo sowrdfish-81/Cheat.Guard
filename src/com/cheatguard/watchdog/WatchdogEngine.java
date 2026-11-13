@@ -106,6 +106,8 @@ public class WatchdogEngine implements Runnable {
     public void stop() { running = false; }
 
     @Override
+    /** Runs the periodic process, folder and device enforcement loop.
+     * Inputs come from scanners; violations go to LogManager and CentralReporter. */
     public void run() {
         // Session contract: when a session starts, EVERYTHING the student could have
         // left running — visible windows, tray apps, background services they launched
@@ -137,6 +139,7 @@ public class WatchdogEngine implements Runnable {
      * components, the admin-approved exam tools and the app's own helper processes
      * are spared; browsers are closed wherever they are installed.
      */
+    /** Closes known disallowed tools before normal monitoring begins. */
     private void startupKillSweep() {
         List<String> systemPrefixes = buildSystemPrefixes();
         for (ProcessHandle ph : ProcessHandle.allProcesses().toList()) {
@@ -454,6 +457,7 @@ public class WatchdogEngine implements Runnable {
         return suspicious;
     }
 
+    /** Compares current processes with policy/baseline and emits violations. */
     private void checkProcesses() {
         List<ProcessInfo> visible = scanner.getRunningProcesses();
         Set<Long> stillVisibleBlocked = new HashSet<>();
@@ -518,6 +522,7 @@ public class WatchdogEngine implements Runnable {
         baselineSweepDone = true;
     }
 
+    /** Checks folder activity outside the exam boundary and reports access events. */
     private void checkFolders() {
         List<String> bad = folderMonitor.getUnauthorizedExplorerFolders();
         Set<String> current = new HashSet<>(bad);
@@ -537,12 +542,14 @@ public class WatchdogEngine implements Runnable {
         }
     }
 
+    /** Compares current device snapshot with the baseline and reports new risks. */
     private void checkExternalDevices() {
         for (String device : deviceMonitor.checkForNewRiskDevices()) {
             emit(new Violation("EXTERNAL_DEVICE_CONNECTED", device, Violation.Severity.CRITICAL));
         }
     }
 
+    /** Sends one violation to local logging and the registered central listener. */
     private void emit(Violation violation) {
         // Routine "closed successfully" rows are shown once per app: when a platform
         // helper immediately respawns after being closed, repeating the row would
