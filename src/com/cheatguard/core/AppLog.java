@@ -1,5 +1,7 @@
 package com.cheatguard.core;
 
+// OWNER: Rohan — structured event/log records consumed by monitoring and diagnostics.
+
 import com.cheatguard.config.AppPaths;
 
 import java.io.File;

@@ -1,5 +1,7 @@
 package com.cheatguard.watchdog;
 
+// OWNER: Muhit — session environment preparation and protected-state cleanup.
+
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.nio.charset.StandardCharsets;

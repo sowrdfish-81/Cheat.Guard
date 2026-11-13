@@ -1,5 +1,7 @@
 package com.cheatguard.config;
 
+// OWNER: Muhit — protected paths, exam-folder boundaries and security storage locations.
+
 import javax.swing.filechooser.FileSystemView;
 import java.io.File;
 import java.nio.file.Files;

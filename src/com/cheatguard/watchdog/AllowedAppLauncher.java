@@ -1,5 +1,7 @@
 package com.cheatguard.watchdog;
 
+// OWNER: Rohan — approved-application selection and launch policy.
+
 import com.cheatguard.config.AppConfig;
 
 import java.io.File;

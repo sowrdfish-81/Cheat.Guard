@@ -1,5 +1,7 @@
 package com.cheatguard.gui;
 
+// OWNER: Rafa — application-wide colors, typography and layout theme.
+
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.border.AbstractBorder;

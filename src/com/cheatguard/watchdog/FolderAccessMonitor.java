@@ -1,5 +1,7 @@
 package com.cheatguard.watchdog;
 
+// OWNER: Muhit — exam-folder access monitoring and violation enforcement.
+
 import com.cheatguard.core.AppLog;
 
 import java.io.BufferedReader;

@@ -1,5 +1,7 @@
 package com.cheatguard.watchdog;
 
+// OWNER: Rohan — website activity detection and blocked-domain events.
+
 import com.cheatguard.config.AppConfig;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;

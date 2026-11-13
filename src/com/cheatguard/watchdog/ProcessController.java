@@ -1,5 +1,7 @@
 package com.cheatguard.watchdog;
 
+// OWNER: Muhit — unauthorized-process enforcement and close/deny behavior.
+
 import com.cheatguard.core.AppLog;
 
 /** Windows process enforcement helper. */

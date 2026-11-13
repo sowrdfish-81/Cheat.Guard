@@ -1,5 +1,7 @@
 package com.cheatguard;
 
+// OWNER: Rafa — application entry point, startup UX and release/version display.
+
 import com.cheatguard.config.AppConfig;
 import com.cheatguard.config.AppPaths;
 import com.cheatguard.core.AppLog;

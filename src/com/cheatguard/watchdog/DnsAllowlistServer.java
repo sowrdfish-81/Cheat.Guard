@@ -1,5 +1,7 @@
 package com.cheatguard.watchdog;
 
+// OWNER: Rohan — DNS allowlist resolution and website filtering.
+
 import com.cheatguard.config.AppConfig;
 import com.cheatguard.core.LogManager;
 import com.cheatguard.core.Violation;

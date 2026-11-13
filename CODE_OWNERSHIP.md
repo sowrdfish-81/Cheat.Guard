@@ -1,0 +1,25 @@
+# Code ownership map
+
+This file documents responsibility boundaries for review and maintenance.
+Ownership comments are also placed at the top of source files and immediately
+above shared implementation sections.
+
+## Muhit — Security & Enforcement
+
+Owns lockdown, file/folder walls, process enforcement, device restrictions,
+session security, recovery, fail-safe and fail-closed behavior.
+
+## Rohan — Detection, Policy & Network
+
+Owns PC scanning, allowed/blocked policy decisions, DNS website filtering,
+central networking, pairing, TLS transport and event processing.
+
+## Rafa — Product/UI & Quality
+
+Owns UI/UX, central-monitor presentation, installer/updater experience,
+documentation, release presentation and regression testing.
+
+## Shared files
+
+For shared files, the owner comment immediately above a section is the source
+of truth. Cross-owner changes require review from the other listed owners.

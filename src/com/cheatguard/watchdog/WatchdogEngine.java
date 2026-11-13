@@ -1,5 +1,7 @@
 package com.cheatguard.watchdog;
 
+// OWNER: Muhit — security watchdog orchestration and enforcement lifecycle.
+
 import com.cheatguard.core.LogManager;
 import com.cheatguard.core.Violation;
 

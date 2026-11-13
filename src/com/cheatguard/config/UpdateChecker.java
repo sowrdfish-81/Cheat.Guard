@@ -1,5 +1,7 @@
 package com.cheatguard.config;
 
+// OWNER: Rafa — update discovery, installer verification and update UX.
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;

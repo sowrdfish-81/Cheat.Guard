@@ -1,5 +1,7 @@
 package com.cheatguard.watchdog;
 
+// OWNER: Muhit — USB, adapter and portable-device enforcement.
+
 import com.cheatguard.core.AppLog;
 
 import java.io.BufferedReader;

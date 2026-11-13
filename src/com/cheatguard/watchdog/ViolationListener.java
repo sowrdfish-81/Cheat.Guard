@@ -1,5 +1,7 @@
 package com.cheatguard.watchdog;
 
+// OWNER: Rohan — violation event routing to policy and central monitoring.
+
 import com.cheatguard.core.Violation;
 
 /**

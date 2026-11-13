@@ -1,5 +1,7 @@
 package com.cheatguard.config;
 
+// OWNER: Rohan — tool/process discovery and policy input generation.
+
 import com.cheatguard.core.AppLog;
 
 import java.io.BufferedReader;

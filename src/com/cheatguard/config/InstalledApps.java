@@ -1,5 +1,7 @@
 package com.cheatguard.config;
 
+// OWNER: Rohan — installed application discovery and scan results.
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;

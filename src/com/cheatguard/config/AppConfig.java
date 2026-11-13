@@ -1,5 +1,7 @@
 package com.cheatguard.config;
 
+// OWNER: Rohan — scan/policy configuration and persisted allowlist settings.
+
 import com.cheatguard.core.AppLog;
 
 import java.io.*;

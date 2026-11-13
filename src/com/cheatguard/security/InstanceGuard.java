@@ -1,5 +1,7 @@
 package com.cheatguard.security;
 
+// OWNER: Muhit — single-instance and duplicate-process protection.
+
 import com.cheatguard.config.AppPaths;
 
 import java.io.File;

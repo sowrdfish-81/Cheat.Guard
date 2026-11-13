@@ -1,5 +1,7 @@
 package com.cheatguard.security;
 
+// OWNER: Muhit — encrypted vault backup rotation and retention.
+
 import com.cheatguard.config.AppConfig;
 import com.cheatguard.config.AppPaths;
 import com.cheatguard.core.AppLog;

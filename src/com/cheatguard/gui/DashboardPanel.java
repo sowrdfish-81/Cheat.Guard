@@ -1,5 +1,7 @@
 package com.cheatguard.gui;
 
+// OWNER: Rafa — student dashboard layout, controls and status presentation.
+
 import com.cheatguard.config.AppPaths;
 import com.cheatguard.security.AdminAuth;
 import com.cheatguard.security.LogProtection;

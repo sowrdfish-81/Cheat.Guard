@@ -1,5 +1,7 @@
 package com.cheatguard.security;
 
+// OWNER: Muhit — protected credential storage, hashing and lockout state.
+
 import com.cheatguard.config.AppPaths;
 
 import java.io.File;

@@ -1,5 +1,7 @@
 package com.cheatguard.security;
 
+// OWNER: Muhit — checksum/signature verification for protected artifacts.
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;

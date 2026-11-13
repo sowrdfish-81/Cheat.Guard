@@ -1,5 +1,7 @@
 package com.cheatguard.security;
 
+// OWNER: Muhit — administrator authentication and security gatekeeping.
+
 import java.io.IOException;
 import java.util.Arrays;
 

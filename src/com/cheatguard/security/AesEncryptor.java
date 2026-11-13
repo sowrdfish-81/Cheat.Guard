@@ -1,5 +1,7 @@
 package com.cheatguard.security;
 
+// OWNER: Muhit — authenticated encryption primitives for protected records.
+
 import javax.crypto.Cipher;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.IvParameterSpec;

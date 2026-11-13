@@ -1,5 +1,7 @@
 package com.cheatguard.watchdog;
 
+// OWNER: Muhit — strict network enforcement and fail-closed verification.
+
 import com.cheatguard.config.AppPaths;
 import com.cheatguard.core.AppLog;
 import com.cheatguard.core.LogManager;

@@ -1,5 +1,7 @@
 package com.cheatguard.gui;
 
+// OWNER: Rafa — settings, allowlist editor, password UI and interaction flow.
+
 import com.cheatguard.config.AppConfig;
 import com.cheatguard.security.AdminAuth;
 

@@ -1,5 +1,7 @@
 package com.cheatguard.gui;
 
+// OWNER: Rafa — audit/event text formatting for the user interface.
+
 import com.cheatguard.core.Violation;
 
 import java.time.format.DateTimeFormatter;

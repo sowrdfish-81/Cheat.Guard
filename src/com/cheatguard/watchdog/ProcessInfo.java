@@ -1,5 +1,7 @@
 package com.cheatguard.watchdog;
 
+// OWNER: Rohan — normalized process scan data.
+
 public class ProcessInfo {
     private final long pid;
     private final String name;

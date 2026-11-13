@@ -1,5 +1,7 @@
 package com.cheatguard.core;
 
+// OWNER: Muhit — protected session-log lifecycle and sealing integration.
+
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
